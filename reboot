@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd Server
 make clean
 make
 ./server 6000 1
