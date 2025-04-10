@@ -1,5 +1,5 @@
 from tkinter import *
-from FEN import *
+from Client.FEN import *
 from PIL import Image, ImageTk
 import os
 

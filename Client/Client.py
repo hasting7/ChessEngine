@@ -1,6 +1,6 @@
 import socket, datetime, sys, json, os, time
-from Board import App
-from FEN import FEN_String
+from Client.Board import App
+from Client.FEN import FEN_String
 
 PORT = 6000
 BUFFER_SIZE = 1000;

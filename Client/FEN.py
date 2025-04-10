@@ -32,8 +32,3 @@ class FEN_String():
 						self.states.append('')
 				else:
 					self.states.append(char)
-
-
-def move_generator(bitmap, start_index, step_list, can_jump):
-	pass
-
