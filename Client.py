@@ -15,33 +15,37 @@ class Client():
 	def __init__(self):
 		self.server = socket.socket()
 		self.server.connect(('127.0.0.1', PORT))
+		self.ready_quit = False
+		self.viewer = False
 
 
 		status, content = self.take_action(GET_COLOR, None)
 
+		print(content)
 		self.color = int(content);
 
-		self.chess_app = App((500,500), self.color, self.handle_highlight, self.handle_move);
+		if (self.color == 3): # viewer
+			self.viewer = True
+			self.color = 0
+
+		self.chess_app = App((500,500), self.color, self.handle_highlight, self.handle_move, self.quit_game);
 
 		status, content = self.take_action(VIEW, None)
 		self.chess_app.board.render_fen(FEN_String(content))
+
+	def quit_game(self):
+		self.ready_quit = True
+		self.server.close()
 		
 
 	def take_action(self, action_name, args, buffer_size=BUFFER_SIZE):
 		action_name = "%s"%action_name
 		final_call = action_name + " " + " ".join([str(arg) for arg in args]) if args else action_name
 		final_call += "\n\n";
-		print("FINAL COMMAND",final_call)
 		self.server.send(final_call.encode())
 
 		response = self.server.recv(buffer_size).decode()
-
-		print(response)
-
 		return "OK", response;
-		# json_resp = json.loads(response)
-
-		# return json_resp['status'], json_resp['content']
 
 	def handle_highlight(self, rf_name):
 		print(rf_name);
@@ -53,15 +57,12 @@ class Client():
 
 		for tile in content.split(','):
 			index = (ord(tile[0]) - 97) * 8 + (ord(tile[1]) - 49);
-			print(index, tile);
 
 			tile_indicies.append(index)
 
 		return tile_indicies
 
 	def handle_move(self, rf_from, rf_to):
-		print("moving: %s to %s"%(rf_from, rf_to))
-
 		status, content = self.take_action(MOVE, [rf_from,rf_to])
 
 		return content
@@ -70,7 +71,7 @@ class Client():
 	def mainloop(self):
 		last_update = time.time()
 		delta = 0.5
-		while (1):
+		while (not self.ready_quit):
 			self.chess_app.refresh()
 
 			# command = input("Type Ready: ")
@@ -82,6 +83,7 @@ class Client():
 			if curr_time - last_update > delta:
 				last_update = delta
 				status, content = self.take_action(VIEW, None)
+				print(content)
 				self.chess_app.board.render_fen(FEN_String(content))
 
 

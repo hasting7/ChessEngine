@@ -28,18 +28,19 @@ class Tile():
 
 		self.tile_name = "%s%s"%(chr(int(index / 8 + 97)),chr((index % 8) + 49))
 
+		self.was_updated = False
+
 		#remove later
-		text = '%d - %s'%(index, self.tile_name)
+		text = '%d'%(index)
 
 
-		# self.name = self.drawer.create_text(coords[0] + self.size/2,coords[1] + self.size/2,anchor='center',font=('Arial',18),fill='#d90166',text=text)
+		self.name = self.drawer.create_text(coords[0] + self.size/2,coords[1] + self.size/2,anchor='center',font=('Arial',18),fill='#d90166',text=text)
 
 		self.set_piece(state,False)
 		
 
 	def highlight(self, color):
-		# if self.drawer.player != self.owner or self.drawer.highlighted == self.index: return None
-		if self.drawer.highlighted == self.index: return None
+		if self.drawer.player != self.owner or self.drawer.highlighted == self.index: return None
 		self.drawer.itemconfigure(self.box, fill=color, outline=color)
 		return self.index
 
@@ -59,7 +60,7 @@ class Tile():
 
 		if state == EMPTY:
 			self.img = None
-			self.owner = NONE
+			self.owner = None
 			return
 
 		self.owner = WHITE if state.isupper() else BLACK
@@ -157,7 +158,7 @@ class Board(Canvas):
 
 
 class App(Tk):
-	def __init__(self, size, color, highlight_handler, move_handler):
+	def __init__(self, size, color, highlight_handler, move_handler, on_quit):
 		super().__init__()
 		screen_width = self.winfo_screenwidth()
 		screen_height = self.winfo_screenheight()
@@ -174,11 +175,17 @@ class App(Tk):
 
 		self.board.handle_highlight = highlight_handler
 		self.board.handle_move = move_handler
+		self.on_quit = on_quit
 		self.board.player = color
 
 
+		self.bind('q', self.leave)
 
-		self.bind('q', lambda e: self.destroy())
+	def leave(self,e):
+		print("QUITTING")
+		self.on_quit()
+		self.destroy()
+		
 
 	def refresh(self):
 		self.update_idletasks()

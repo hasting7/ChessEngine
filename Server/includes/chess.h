@@ -16,6 +16,8 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <limits.h>
+#include <float.h>
 
 #include "prototypes.h"
 

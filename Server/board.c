@@ -1,59 +1,120 @@
 #include "includes/chess.h"
 
-/*
+const int CAPTURE = 2;
+const int NORMAL = 1;
 
-IMPORTANT
-when movign a piece i need to update the zobrist hash using the functiosn
-update the bitboard of the piece type
-update the bitboard of the all pieces
+Move encode_move(int from_index, int to_index, int flags) {
+	// use flags for castling or promotion or en passant
+	return (from_index & 0x3F) | ((to_index & 0x3F) << 6) | ((flags & 0xF) << 12);
+}
 
-*/
+void decode_move(Move move, int *from_index, int *to_index, int *flags) {
+	// use flags for castling or promotion or en passant
+	*from_index = move & 0x3F;
+	*to_index = (move >> 6) & 0x3F;
+	*flags = (move >> 12) & 0xF;
+}
 
-//return (1ULL << to_tile_index) & avaliable_moves;
+int check_move_flag(Move move, int flags) {
+	return (((move >> 12) & 0xF) & flags) == flags;
+}
+
+int is_color_turn(Board *board, Color color) {
+	Color turn;
+	turn = board->active_player;
+	return turn == color;
+}
+
+void pawn_promote(Board *state, int pawn_location) {
+	Bitboard tile_mask = 1LLU << pawn_location;
+	Color player = state->active_player;
+
+	// update hash by removing pawn, placing queen
+	state->z_hash ^= update_pawn_promote(pawn_location, QUEEN, state->active_player);
+
+	state->pieces[player][PAWN] &= ~tile_mask;
+	state->piece_count[player][PAWN] -= 1;
+	state->pieces[player][QUEEN] |= tile_mask;
+	state->piece_count[player][QUEEN] += 1;
+
+}
+
+// int move_breaks_check(Board *state, Move move) {
+
+// }
 
 
-
-int move_piece(Board *state, Zobrist *zobrist, int from_index, int to_index, Bitboard valid_moves, Color player_color) {
-	Bitboard from_mask = (1ULL << from_index);
-	Bitboard to_mask = (1ULL << to_index);
-	Color moving_color = state->active_player;
-	// make sure the piece belongs to the active player
-	if (!(from_mask & state->all_pieces[moving_color]) || moving_color != player_color) {
- 		return 1; // not valid
-	}
-	// make sure the to_index results in a valid place on the moves
-	if (!(to_mask & valid_moves)) {
+int move_piece(Board *state, Move move) {
+	if (move == NO_MOVE) {
 		return 1;
 	}
 
-	// the from_index is a valid piece of the active player
-	// the to_index in a valid move option
+	int to_index, from_index, flags;
+	decode_move(move, &from_index, &to_index, &flags);
+
+	Bitboard from_mask = (1ULL << from_index);
+	Bitboard to_mask = (1ULL << to_index);
+	Color moving_color = state->active_player;
+
+	// printf("from: %d to: %d flags: %d\n",from_index,to_index,flags);
+
+	// make sure the piece belongs to the active player
+	if (!(from_mask & state->all_pieces[moving_color])) {
+ 		return 1; // not valid
+	}
+	// make sure the to_index results in a valid place on the moves
+
+	// I AM NOT CHECKING FOR VALID MOVES BUT IM ASSUMING ONLY VALID MOCES CAN BE MADE
 
 	// check if capture or just move
+
+	Hash update_hash = 0;
 
 	Piece piece = piece_on_tile(state, moving_color, from_mask);
 
 	if ((1ULL << to_index) & state->all_pieces[!moving_color]) {
-		printf("capture! %d to %d\n",from_index,to_index);
+		// printf("capture! %d to %d\n",from_index,to_index);
 
-		Piece capture_piece = piece_on_tile(state, moving_color, from_mask);
+		Piece capture_piece = piece_on_tile(state, !moving_color, to_mask);
 
-		update_zobrist_capture(zobrist, to_index, capture_piece, !moving_color);
+		if (capture_piece == KING) {
+			set_flag(state, TERMINAL, TRUE);
+		}
+
+		update_hash ^= update_zobrist_capture(to_index, capture_piece, !moving_color);
 
 		state->pieces[!moving_color][capture_piece] ^= to_mask;
 		state->all_pieces[!moving_color] ^= to_mask;
+		state->piece_count[!moving_color][capture_piece] -= 1;
 	}
-	update_zobrist_move(zobrist, from_index, to_index, piece, moving_color);
+	update_hash ^= update_zobrist_move(from_index, to_index, piece, moving_color);
 
 	// update bitboards
 
 	state->pieces[moving_color][piece] ^= from_mask ^ to_mask;
 	state->all_pieces[moving_color] ^= from_mask ^ to_mask;
 
-	update_zobrist_turn(zobrist);
-	state->active_player = !state->active_player;
+	if (piece == PAWN && (to_mask & 0xFF000000000000FF)) {
+		pawn_promote(state, to_index);
+	}
 
+	// check checks, only check player about to be
 
+	printf("start checking check\n");
+	Bitboard attack_moves = generate_attackable_squares(state, WHITE);
+	int is_check = (attack_moves & state->pieces[BLACK][KING]) ? 1 : 0;
+	set_flag(state, BLACK_CHECK, is_check);
+
+	attack_moves = generate_attackable_squares(state, BLACK);
+	is_check = (attack_moves & state->pieces[WHITE][KING]) ? 1 : 0;
+	set_flag(state, WHITE_CHECK, is_check);
+	printf("done checking check\n");
+
+	update_hash ^= update_zobrist_turn();
+
+	state->z_hash ^= update_hash;
+	state->active_player = !moving_color;
+	
 	return 0;
 }
 
@@ -77,6 +138,20 @@ Board * create_board() {
 	board->pieces[BLACK][KING] = BLACK_KING_START;
 	board->pieces[BLACK][QUEEN] = BLACK_QUEEN_START;
 
+	board->piece_count[WHITE][PAWN]   = __builtin_popcountll(WHITE_PAWN_START);
+    board->piece_count[WHITE][KNIGHT] = __builtin_popcountll(WHITE_KNIGHT_START);
+    board->piece_count[WHITE][BISHOP] = __builtin_popcountll(WHITE_BISHOP_START);
+    board->piece_count[WHITE][ROOK]   = __builtin_popcountll(WHITE_ROOK_START);
+    board->piece_count[WHITE][QUEEN]  = __builtin_popcountll(WHITE_QUEEN_START);
+    board->piece_count[WHITE][KING]   = __builtin_popcountll(WHITE_KING_START);
+
+    board->piece_count[BLACK][PAWN]   = __builtin_popcountll(BLACK_PAWN_START);
+    board->piece_count[BLACK][KNIGHT] = __builtin_popcountll(BLACK_KNIGHT_START);
+    board->piece_count[BLACK][BISHOP] = __builtin_popcountll(BLACK_BISHOP_START);
+    board->piece_count[BLACK][ROOK]   = __builtin_popcountll(BLACK_ROOK_START);
+    board->piece_count[BLACK][QUEEN]  = __builtin_popcountll(BLACK_QUEEN_START);
+    board->piece_count[BLACK][KING]   = __builtin_popcountll(BLACK_KING_START);
+
 	board->all_pieces[WHITE] = WHITE_PAWN_START | WHITE_ROOK_START | WHITE_KNIGHT_START | WHITE_BISHOP_START | WHITE_KING_START | WHITE_QUEEN_START;
 	board->all_pieces[BLACK] = BLACK_PAWN_START | BLACK_ROOK_START | BLACK_KNIGHT_START | BLACK_BISHOP_START | BLACK_KING_START | BLACK_QUEEN_START;
 
@@ -84,6 +159,7 @@ Board * create_board() {
 	board->active_player = WHITE;
 	board->move_count = 0;
 	board->last_capture = 0;
+	board->flags = 0;
 
 	return board;
 };
@@ -100,67 +176,68 @@ Piece piece_on_tile(Board *state, Color color_of_piece, uint64_t mask) {
 
 
 // disbatcher to the individual move functions per pieces
-uint64_t generate_moves(Board *state, int tile_index) {
+Bitboard generate_moves(Board *state, int tile_index) {
 
-	uint64_t mask = 1ULL << tile_index;
+	Bitboard from_mask = 1ULL << tile_index;
 
-	Piece piece = NO_PIECE;
-
-	if (mask & state->all_pieces[WHITE]) {
-		switch (piece_on_tile(state, WHITE, mask)) {
-			case PAWN:
-				return generate_pawn_moves(state, mask, WHITE);
-				break;
-			case KNIGHT:
-				return generate_knight_moves(state, mask, WHITE);
-				break;
-			case ROOK:
-				return generate_rook_moves(state, mask, WHITE);
-				break;
-			case BISHOP:
-				return generate_bishop_moves(state, mask, WHITE);
-				break;
-			case QUEEN:
-				return generate_queen_moves(state, mask, WHITE);
-				break;
-			case KING:
-				return generate_king_moves(state, mask, WHITE);
-				break;
-			default:
-				return NO_MOVE;
-				break;
-		}
-	} else if (mask & state->all_pieces[BLACK]) {
-		switch (piece_on_tile(state, BLACK, mask)) {
-			case PAWN:
-				return generate_pawn_moves(state, mask, BLACK);
-				break;
-			case KNIGHT:
-				return generate_knight_moves(state, mask, BLACK);
-				break;
-			case ROOK:
-				return generate_rook_moves(state, mask, BLACK);
-				break;
-			case BISHOP:
-				return generate_bishop_moves(state, mask, BLACK);
-				break;
-			case QUEEN:
-				return generate_queen_moves(state, mask, BLACK);
-				break;
-			case KING:
-				return generate_king_moves(state, mask, BLACK);
-				break;
-			default:
-				return NO_MOVE;
-				break;
-		}
+	// check if piece is in the tile
+	if (!(from_mask & (state->all_pieces[WHITE] | state->all_pieces[BLACK]))) {
+		return NO_MOVE;
 	}
-	printf("%d\n",piece);
 
-	return 0;
+	Color color = (from_mask & state->all_pieces[WHITE]) ? WHITE : BLACK;
+	Bitboard moves;
+
+	switch (piece_on_tile(state, color, from_mask)) {
+		case PAWN:
+			moves = generate_pawn_moves(state, from_mask, color);
+			break;
+		case KNIGHT:
+			moves = generate_knight_moves(state, from_mask, color);
+			break;
+		case ROOK:
+			moves = generate_rook_moves(state, from_mask, color);
+			break;
+		case BISHOP:
+			moves = generate_bishop_moves(state, from_mask, color);
+			break;
+		case QUEEN:
+			moves = generate_queen_moves(state, from_mask, color);
+			break;
+		case KING:
+			moves = generate_king_moves(state, from_mask, color);
+			break;
+		default:
+			moves = NO_MOVE;
+			break;
+	}
+
+	// add check check
+	if (moves && check_flag(state, (BoardFlag) color)) {
+		// Bitboard copy = moves;
+		Bitboard to_mask = 1ULL;
+		Move check_move;
+		Board temp_board;
+		int offset = 0;
+
+		for (; offset < 64; offset++) {
+			if (to_mask & moves) {
+				check_move = encode_move(tile_index, offset, 0);
+				temp_board = *state;
+				move_piece(&temp_board, check_move);
+
+				if (check_flag(&temp_board, (BoardFlag) color)) {
+					moves ^= 1;
+				}
+			}
+			to_mask <<= 1;
+		}
+		printf("%s in check\n",(state->active_player) ? "black" : "white");
+	}
+	return moves;
 }
 
-uint64_t generate_knight_moves(Board *state, uint64_t knight, Color color) {
+Bitboard generate_knight_moves(Board *state, Bitboard knight, Color color) {
    uint64_t l1 = (knight >> 1) & 0x7f7f7f7f7f7f7f7f;
    uint64_t l2 = (knight >> 2) & 0x3f3f3f3f3f3f3f3f;
    uint64_t r1 = (knight << 1) & 0xfefefefefefefefe;
@@ -170,19 +247,27 @@ uint64_t generate_knight_moves(Board *state, uint64_t knight, Color color) {
    return ((h1<<16) | (h1>>16) | (h2<<8) | (h2>>8)) & (~state->all_pieces[color]);
 }
 
-uint64_t generate_pawn_moves(Board *state, uint64_t pawn, Color color) {
-	uint64_t single_move = (pawn << 8) >> (color << 4);
-	uint64_t pawn_home_rank = 0xff00ULL << ((color == WHITE) ? 0 : 40);
-	uint64_t double_move = (color == WHITE) ? (pawn << 16) : (pawn >> 16);
-	double_move = (pawn & pawn_home_rank) ? double_move : 0;
-
-	uint64_t empty = ~(state->all_pieces[WHITE] | state->all_pieces[BLACK]);
-	uint64_t push_moves = (single_move | double_move) & empty;
-	uint64_t attack_moves = ((color == WHITE) ? ((pawn << 7 | pawn << 9) & state->all_pieces[BLACK]) : ((pawn >> 7 | pawn >> 9) & state->all_pieces[WHITE]));
-   return push_moves | attack_moves;
+Bitboard generate_pawn_moves(Board *state, Bitboard pawn, Color color) {
+    uint64_t empty = ~(state->all_pieces[WHITE] | state->all_pieces[BLACK]);
+    uint64_t push_moves, attack_moves, single_move, double_move;
+    if (color == WHITE) {
+    	//0x000000000000FF00ULL
+        single_move = (pawn << 8) & empty;
+        double_move = ((single_move & 0x0000000000FF0000ULL) << 8) & empty;
+        push_moves = single_move | double_move;
+        attack_moves = ((pawn & NOT_A_FILE) << 7 | (pawn & NOT_H_FILE) << 9) & state->all_pieces[BLACK];
+    } else {
+    	//0x00FF000000000000ULL
+        single_move = (pawn >> 8) & empty;
+        double_move = ((single_move & 0x0000FF0000000000ULL) >> 8) & empty;
+        push_moves = single_move | double_move;
+        attack_moves = ((pawn & NOT_H_FILE) >> 7 | (pawn & NOT_A_FILE) >> 9) & state->all_pieces[WHITE];
+    }
+    
+    return push_moves | attack_moves;
 }
 
-uint64_t generate_rook_moves(Board *state, uint64_t rook, Color color) {
+Bitboard generate_rook_moves(Board *state, Bitboard rook, Color color) {
     uint64_t occupied = state->all_pieces[WHITE] | state->all_pieces[BLACK];
     uint64_t enemy_pieces = state->all_pieces[!color];
     uint64_t possible = 0;
@@ -231,7 +316,7 @@ uint64_t generate_rook_moves(Board *state, uint64_t rook, Color color) {
     return possible;
 }
 
-uint64_t generate_bishop_moves(Board *state, uint64_t bishop, Color color) {
+Bitboard generate_bishop_moves(Board *state, Bitboard bishop, Color color) {
     uint64_t occupied = state->all_pieces[WHITE] | state->all_pieces[BLACK];
     uint64_t enemy_pieces = state->all_pieces[!color];
     uint64_t possible = 0;
@@ -280,26 +365,41 @@ uint64_t generate_bishop_moves(Board *state, uint64_t bishop, Color color) {
     return possible;
 }
 
-uint64_t generate_queen_moves(Board *state, uint64_t queen, Color color) {
+
+Bitboard generate_queen_moves(Board *state, Bitboard queen, Color color) {
 	return generate_rook_moves(state, queen, color) | generate_bishop_moves(state, queen, color);
 }
 
-uint64_t generate_king_moves(Board *state, uint64_t king, Color color) {
-   uint64_t possible = 0;
-   possible |= (king << 8) & ~state->all_pieces[color];
-   possible |= (king >> 8) & ~state->all_pieces[color];
-   possible |= (king << 1) & ~state->all_pieces[color];
-   possible |= (king >> 1) & ~state->all_pieces[color];
-   possible |= (king << 7) & ~state->all_pieces[color];
-   possible |= (king << 9) & ~state->all_pieces[color];
-   possible |= (king >> 7) & ~state->all_pieces[color];
-   possible |= (king >> 9) & ~state->all_pieces[color];
+Bitboard generate_king_moves(Board *state, Bitboard king, Color color) {
+	uint64_t possible = 0;
+	possible |= (king << 8) & ~state->all_pieces[color];
+	possible |= (king >> 8) & ~state->all_pieces[color];
+	possible |= (king << 1) & ~state->all_pieces[color] & NOT_A_FILE;
+	possible |= (king >> 1) & ~state->all_pieces[color] & NOT_H_FILE; 
+	possible |= (king << 7) & ~state->all_pieces[color] & NOT_H_FILE;
+	possible |= (king << 9) & ~state->all_pieces[color] & NOT_A_FILE;
+	possible |= (king >> 7) & ~state->all_pieces[color] & NOT_A_FILE;
+	possible |= (king >> 9) & ~state->all_pieces[color] & NOT_H_FILE; 
    return possible;
+}
+
+Bitboard generate_attackable_squares(Board *state, Color color) {
+	Bitboard total_moves = 0LLU;
+	Bitboard mask = 1;
+	int from_index = 0; // how can I add more value to this?
+	for (; from_index < 64; from_index++) {
+		if (mask & state->all_pieces[color]) {
+			total_moves |= generate_moves(state, from_index);
+		}
+		mask = mask << 1;
+	}
+	return total_moves;
 }
 
 
 char *generate_moves_as_string(Board *state, int tile_index) {
 	uint64_t moves_list = generate_moves(state, tile_index);
+	// uint64_t moves_list = generate_attackable_squares(state, state->active_player);
 	char buffer[1024] = { 0 };
 	int len = 0;
 	char rank;
@@ -332,6 +432,15 @@ char *generate_moves_as_string(Board *state, int tile_index) {
 	return return_string;
 }
 
+int check_flag(Board *state, BoardFlag flag) {
+	return ((1 << flag) & state->flags) ? 1 : 0;
+}
+
+void set_flag(Board *state, BoardFlag flag, int flag_value) {
+	if (check_flag(state, flag) != flag_value) { // the flag is needs to be toggled
+		state->flags ^= (1 << flag);
+	}
+}
 
 char *board_to_fen(Board *state) {
 

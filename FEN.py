@@ -21,10 +21,8 @@ EMPTY = ''
 class FEN_String():
 	def __init__(self, fen_string=DEFAULT_FEN):
 		sections = fen_string.split(' ')
-		print(sections)
 
 		ranks = sections[0].split('/')
-		print(ranks)
 		self.states = []
 
 		for i, rank in enumerate(ranks):
