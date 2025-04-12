@@ -3,6 +3,12 @@
 #define CENTER_SQUARES 0x0000003c3c000000
 #define CENTER_PENALTY 5
 
+#define LOOK_AHEAD 5
+
+
+Bitboard CHECK_ALL = 0xFFFFFFFFFFFFFFFF;
+
+
 static inline int max(int a, int b) {
 	return (a > b) ? a : b;
 }
@@ -11,25 +17,63 @@ static inline int min(int a, int b) {
 	return (a < b) ? a : b;
 }
 
+
 Move select_move(Board *state) {
-	struct alphabeta_response response;
-	alphabeta(state, 5, INT_MIN, INT_MAX, FALSE, &response);
+	clock_t start = clock();
+	int pipe_fd[2];
+	int children_procs = 0;
+	pipe(pipe_fd);
 
-	// get the move ADD BACK IN ZOBRIST HASH
-	// struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
+	pid_t pid;
 
-	Move move = response.move;
-
-	if (move == NO_MOVE) {
-		printf("CHECKMATE");
-		return NO_MOVE;
+	Bitboard from_mask = 1ULL;
+	Bitboard pieces = state->all_pieces[state->active_player];
+	for (int i = 0; i < 64; i++) {
+		if (pieces & from_mask) {
+			children_procs++;
+			pid = fork();
+			if (pid == 0) {
+				close(pipe_fd[0]);
+				process_task(*state, pipe_fd[1], from_mask);
+			}
+		}
+		from_mask <<= 1;
 	}
 
-	int from_square, to_square, flags;
-	decode_move(move, &from_square, &to_square, &flags);
-	printf("move from %d to %d, score = %.2f\n", from_square, to_square, response.score);
+	struct alphabeta_response result;
+	struct alphabeta_response best = {.score = FLT_MAX, .move = NO_MOVE};
 
-	return move;
+
+	close(pipe_fd[1]);  // Close write end of the pipe
+    for (int i = 0; i < children_procs; i++) {
+        read(pipe_fd[0], &result, sizeof(result));  // Read result from the pipe
+        // printf("Received result from child %d: %f %d\n", i, result.score, result.move);
+
+        if (result.score < best.score) {
+        	best = result;
+        }
+    }
+
+	// // get the move ADD BACK IN ZOBRIST HASH
+	// // struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
+
+	// Move move = response.move;
+
+	// if (move == NO_MOVE) {
+	// 	printf("CHECKMATE");
+	// 	return NO_MOVE;
+	// }
+
+	int from_square, to_square, flags;
+	decode_move(best.move, &from_square, &to_square, &flags);
+	
+
+	clock_t end = clock();
+	double time = (double)(end - start) / CLOCKS_PER_SEC;
+	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, best.score, time);
+
+
+	return best.move;
 }
 
 int evaluate_center_control(Board *state, Color color) {
@@ -79,7 +123,7 @@ float evaluate_board(Board *state) {
 	return score + (attack_score * 0.1) + (1000 * check_score);
 }
 
-void generate_all_moves(Board *state, Move *move_list, int *move_count) {
+void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard only_check_mask) {
 	// make sure moves less thna MAX_MOVES
 	Move *move_head = move_list;
 	*move_count = 0;
@@ -98,7 +142,7 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count) {
 	// int is_in_check = check_flag(state, () state->active_player);
 
 	for (; from_index < 64; from_index++) {
-		if (state->all_pieces[color] & tile_mask) {
+		if (state->all_pieces[color] & tile_mask & only_check_mask) {
 			// piece is here;
 			valid_moves = generate_moves(state, from_index, TRUE);
 			if (valid_moves) {
@@ -147,8 +191,20 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count) {
 	}
 }
 
+void process_task(Board state, int fd, Bitboard inital_tile) {
+	// extablish IPC
+	// start alpha beta with precondition
+	// pipe best move back
 
-void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player, struct alphabeta_response * best_info) {
+	struct alphabeta_response response;
+	alphabeta(&state, LOOK_AHEAD, INT_MIN, INT_MAX, FALSE, &response, inital_tile);
+
+
+	write(fd, &response, sizeof(response));
+	exit(0);
+}
+
+void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player, struct alphabeta_response * best_info, Bitboard only_check_mask) {
 	// struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
 	float best_score;
 
@@ -165,10 +221,10 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 	int move_count, move_status_error;
 	struct alphabeta_response response;
 
-	generate_all_moves(state, move_list, &move_count);
+	generate_all_moves(state, move_list, &move_count, only_check_mask);
 
 	if (move_count == 0) {
-		printf("NO MOVES (CHECKMATE)\n");
+		// printf("NO MOVES (CHECKMATE)\n");
 		best_info->score = (maximize_player) ? -1000000 : 1000000;
 		best_info->move = NULL_MOVE;
 		return;
@@ -185,7 +241,7 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 			}
 
 			// find max score
-			alphabeta(&board, depth - 1, alpha, beta, FALSE, &response);
+			alphabeta(&board, depth - 1, alpha, beta, FALSE, &response, CHECK_ALL);
 
 			if (response.score > best_score) {
 				best_info->move = move_list[i];
@@ -208,7 +264,7 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 
 			
 			// find min score
-			alphabeta(&board, depth - 1, alpha, beta, TRUE, &response);
+			alphabeta(&board, depth - 1, alpha, beta, TRUE, &response, CHECK_ALL);
 
 			if (response.score < best_score) {
 				best_info->move = move_list[i];

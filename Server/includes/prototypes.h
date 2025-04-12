@@ -60,6 +60,7 @@ Hash update_pawn_promote(int, Piece, Color);
 // AI PROTOTYPES
 
 Move select_move(Board *);
-void alphabeta(Board *, int, int, int, int, struct alphabeta_response *);
+void alphabeta(Board *, int, int, int, int, struct alphabeta_response *, Bitboard);
+void process_task(Board, int, Bitboard);
 
 #endif
