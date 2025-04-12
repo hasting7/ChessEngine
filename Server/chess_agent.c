@@ -12,6 +12,7 @@ static inline int min(int a, int b) {
 }
 
 Move select_move(Board *state) {
+	clock_t start = clock();
 	struct alphabeta_response response;
 	alphabeta(state, 5, INT_MIN, INT_MAX, FALSE, &response);
 
@@ -27,7 +28,11 @@ Move select_move(Board *state) {
 
 	int from_square, to_square, flags;
 	decode_move(move, &from_square, &to_square, &flags);
-	printf("move from %d to %d, score = %.2f\n", from_square, to_square, response.score);
+
+	clock_t end = clock();
+	double time = (double)(end - start) / CLOCKS_PER_SEC;
+
+	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, response.score, time);
 
 	return move;
 }
