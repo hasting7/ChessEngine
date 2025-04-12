@@ -52,8 +52,9 @@ typedef uint16_t Move;
 typedef struct board_struct {
     Bitboard pieces[2][6];
     Bitboard all_pieces[2];
+    Bitboard attackable[2];
     uint8_t piece_count[2][6];
-    uint64_t z_hash;
+    Hash z_hash;
     int move_count;
     int last_capture;
     Color active_player;

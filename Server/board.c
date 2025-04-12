@@ -100,15 +100,20 @@ int move_piece(Board *state, Move move) {
 
 	// check checks, only check player about to be
 
-	printf("start checking check\n");
-	Bitboard attack_moves = generate_attackable_squares(state, WHITE);
-	int is_check = (attack_moves & state->pieces[BLACK][KING]) ? 1 : 0;
+	// printf("start checking check\n");
+	state->attackable[WHITE] =  generate_attackable_squares(state, WHITE);
+	int is_check = (state->attackable[WHITE] & state->pieces[BLACK][KING]) ? 1 : 0;
 	set_flag(state, BLACK_CHECK, is_check);
 
-	attack_moves = generate_attackable_squares(state, BLACK);
-	is_check = (attack_moves & state->pieces[WHITE][KING]) ? 1 : 0;
+	// printf("is black in check : %d\n",check_flag(state, BLACK_CHECK));
+
+	state->attackable[BLACK] =  generate_attackable_squares(state, BLACK);
+	is_check = (state->attackable[BLACK] & state->pieces[WHITE][KING]) ? 1 : 0;
 	set_flag(state, WHITE_CHECK, is_check);
-	printf("done checking check\n");
+//
+	// printf("is white in check : %d\n",check_flag(state, WHITE_CHECK));
+
+	// printf("done checking check\n");
 
 	update_hash ^= update_zobrist_turn();
 
@@ -155,6 +160,8 @@ Board * create_board() {
 	board->all_pieces[WHITE] = WHITE_PAWN_START | WHITE_ROOK_START | WHITE_KNIGHT_START | WHITE_BISHOP_START | WHITE_KING_START | WHITE_QUEEN_START;
 	board->all_pieces[BLACK] = BLACK_PAWN_START | BLACK_ROOK_START | BLACK_KNIGHT_START | BLACK_BISHOP_START | BLACK_KING_START | BLACK_QUEEN_START;
 
+	board->attackable[WHITE] = 0LLU;
+	board->attackable[BLACK] = 0LLU;
 	// initalize hash
 	board->active_player = WHITE;
 	board->move_count = 0;
@@ -176,7 +183,7 @@ Piece piece_on_tile(Board *state, Color color_of_piece, uint64_t mask) {
 
 
 // disbatcher to the individual move functions per pieces
-Bitboard generate_moves(Board *state, int tile_index) {
+Bitboard generate_moves(Board *state, int tile_index, int account_for_check) {
 
 	Bitboard from_mask = 1ULL << tile_index;
 
@@ -213,7 +220,8 @@ Bitboard generate_moves(Board *state, int tile_index) {
 	}
 
 	// add check check
-	if (moves && check_flag(state, (BoardFlag) color)) {
+	BoardFlag flag = (color == WHITE) ? WHITE_CHECK : BLACK_CHECK;
+	if (moves && check_flag(state, flag) && account_for_check) {
 		// Bitboard copy = moves;
 		Bitboard to_mask = 1ULL;
 		Move check_move;
@@ -226,13 +234,13 @@ Bitboard generate_moves(Board *state, int tile_index) {
 				temp_board = *state;
 				move_piece(&temp_board, check_move);
 
-				if (check_flag(&temp_board, (BoardFlag) color)) {
-					moves ^= 1;
+				if (check_flag(&temp_board, flag)) {
+					moves ^= to_mask;
 				}
 			}
 			to_mask <<= 1;
 		}
-		printf("%s in check\n",(state->active_player) ? "black" : "white");
+		// printf("%s in check\n",(state->active_player) ? "black" : "white");
 	}
 	return moves;
 }
@@ -389,7 +397,7 @@ Bitboard generate_attackable_squares(Board *state, Color color) {
 	int from_index = 0; // how can I add more value to this?
 	for (; from_index < 64; from_index++) {
 		if (mask & state->all_pieces[color]) {
-			total_moves |= generate_moves(state, from_index);
+			total_moves |= generate_moves(state, from_index, FALSE);
 		}
 		mask = mask << 1;
 	}
@@ -398,7 +406,7 @@ Bitboard generate_attackable_squares(Board *state, Color color) {
 
 
 char *generate_moves_as_string(Board *state, int tile_index) {
-	uint64_t moves_list = generate_moves(state, tile_index);
+	uint64_t moves_list = generate_moves(state, tile_index, TRUE);
 	// uint64_t moves_list = generate_attackable_squares(state, state->active_player);
 	char buffer[1024] = { 0 };
 	int len = 0;

@@ -6,7 +6,7 @@
 Board * create_board();
 char *board_to_fen(Board *);
 Piece piece_on_tile(Board *, Color, Bitboard);
-Bitboard generate_moves(Board *, int);
+Bitboard generate_moves(Board *, int, int);
 char *generate_moves_as_string(Board *, int);
 Bitboard generate_knight_moves(Board *, Bitboard, Color);
 Bitboard generate_pawn_moves(Board *, Bitboard, Color);

@@ -143,11 +143,16 @@ void* viewer_handler(void *void_args) {
 
 void* ai_handler(void *void_args) {
     struct thread_args args = *(struct thread_args *)void_args;
+    int error;
     while (1) {
         if (is_color_turn(args.chess_board, args.color)) {
             printf("AI (%s) turn\n", (args.color == WHITE ? "WHITE" : "BLACK"));
             Move move = select_move(args.chess_board);
-            move_piece(args.chess_board, move);
+            error = move_piece(args.chess_board, move);
+            if (error) {
+                printf("error making move");
+                break;
+            }
         }
     }
     return NULL;

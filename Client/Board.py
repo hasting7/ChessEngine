@@ -34,7 +34,7 @@ class Tile():
 		text = '%d'%(index)
 
 
-		self.name = self.drawer.create_text(coords[0] + self.size/2,coords[1] + self.size/2,anchor='center',font=('Arial',18),fill='#d90166',text=text)
+		# self.name = self.drawer.create_text(coords[0] + self.size/2,coords[1] + self.size/2,anchor='center',font=('Arial',18),fill='#d90166',text=text)
 
 		self.set_piece(state,False)
 		

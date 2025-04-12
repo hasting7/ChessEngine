@@ -13,7 +13,7 @@ static inline int min(int a, int b) {
 
 Move select_move(Board *state) {
 	struct alphabeta_response response;
-	alphabeta(state, 2, INT_MIN, INT_MAX, FALSE, &response);
+	alphabeta(state, 5, INT_MIN, INT_MAX, FALSE, &response);
 
 	// get the move ADD BACK IN ZOBRIST HASH
 	// struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
@@ -33,7 +33,7 @@ Move select_move(Board *state) {
 }
 
 int evaluate_center_control(Board *state, Color color) {
-    uint64_t control = generate_attackable_squares(state, color) & CENTER_SQUARES;
+    uint64_t control = state->attackable[color] & CENTER_SQUARES;
     int control_score = __builtin_popcountll(control) * CENTER_PENALTY; // Count how many center squares are controlled
     return control_score;
 }
@@ -100,7 +100,7 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count) {
 	for (; from_index < 64; from_index++) {
 		if (state->all_pieces[color] & tile_mask) {
 			// piece is here;
-			valid_moves = generate_moves(state, from_index);
+			valid_moves = generate_moves(state, from_index, TRUE);
 			if (valid_moves) {
 				move_mask = 1ULL;
 				to_index = 0;
@@ -162,7 +162,7 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 
 	
 	Move move_list[MAX_MOVES];
-	int move_count;
+	int move_count, move_status_error;
 	struct alphabeta_response response;
 
 	generate_all_moves(state, move_list, &move_count);
@@ -179,7 +179,10 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 
 		for (int i = 0; i < move_count; i++) {
 			Board board = *state;
-			move_piece(&board, move_list[i]);
+			move_status_error = move_piece(&board, move_list[i]);
+			if (move_status_error) { // illegal move
+				continue;
+			}
 
 			// find max score
 			alphabeta(&board, depth - 1, alpha, beta, FALSE, &response);
