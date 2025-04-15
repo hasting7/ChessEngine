@@ -29,6 +29,7 @@ void set_flag(Board *, BoardFlag, int);
 
 extern const int CAPTURE;
 extern const int NORMAL;
+extern const int PROMOTION;
 
 
 // HASH PROTOTYPES

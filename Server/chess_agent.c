@@ -16,7 +16,10 @@ static inline int min(int a, int b) {
 
 
 Move select_move(Board *state) {
-	clock_t start = clock();
+	struct timeval start, end;
+
+	gettimeofday(&start, NULL);
+
 	int pipe_fd[2];
 	int children_procs = 0;
 	pipe(pipe_fd);
@@ -57,8 +60,8 @@ Move select_move(Board *state) {
 	int from_square, to_square, flags;
 	decode_move(best.move, &from_square, &to_square, &flags);
 	
-	clock_t end = clock();
-	double time = (double)(end - start) / CLOCKS_PER_SEC;
+	gettimeofday(&end, NULL);
+	double time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
 	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, best.score, time);
 
 
@@ -134,9 +137,15 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 				for (; to_index < 64; to_index++) {
 					if (valid_moves & move_mask && *move_count < MAX_MOVES) {
 						// HERE WE HAVE VALID FROM AND TO INDEXS
-						mflag = NORMAL;
+						mflag = 0;
 						if (state->all_pieces[!color] & move_mask) {
-							mflag = CAPTURE;
+							mflag |= CAPTURE;
+						}
+						if ((state->pieces[color][PAWN] & tile_mask) && (move_mask & 0xFF000000000000FF)) {
+							mflag |= PROMOTION;
+						}
+						if (mflag == 0) {
+							mflag = NORMAL;
 						}
 						possible_move = encode_move(from_index, to_index, mflag);
 
@@ -157,7 +166,7 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 
 	while (l_pointer < r_pointer) {
 		l_flag = check_move_flag(*l_pointer, NORMAL);
-		r_flag = check_move_flag(*r_pointer, CAPTURE);
+		r_flag = check_move_flag(*r_pointer, CAPTURE | PROMOTION);
 		if (l_flag && r_flag) {
 			Move temp = *l_pointer;
 			*l_pointer = *r_pointer;

@@ -2,6 +2,7 @@
 
 const int CAPTURE = 2;
 const int NORMAL = 1;
+const int PROMOTION = 4;
 
 Move encode_move(int from_index, int to_index, int flags) {
 	// use flags for castling or promotion or en passant
@@ -16,7 +17,7 @@ void decode_move(Move move, int *from_index, int *to_index, int *flags) {
 }
 
 int check_move_flag(Move move, int flags) {
-	return (((move >> 12) & 0xF) & flags) == flags;
+	return (((move >> 12) & 0xF) & flags);
 }
 
 int is_color_turn(Board *board, Color color) {
