@@ -3,6 +3,9 @@
 #define CENTER_SQUARES 0x0000003c3c000000
 #define CENTER_PENALTY 5
 
+int generated_boards = 0;
+int checked_boards = 0;
+
 static inline int max(int a, int b) {
 	return (a > b) ? a : b;
 }
@@ -33,6 +36,7 @@ Move select_move(Board *state) {
 	double time = (double)(end - start) / CLOCKS_PER_SEC;
 
 	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, response.score, time);
+	printf("Generated Boards: %d, Checked Boards %d\n",generated_boards, checked_boards);
 
 	return move;
 }
@@ -171,9 +175,10 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 	struct alphabeta_response response;
 
 	generate_all_moves(state, move_list, &move_count);
+	generated_boards += move_count;
 
 	if (move_count == 0) {
-		printf("NO MOVES (CHECKMATE)\n");
+		//printf("NO MOVES (CHECKMATE)\n");
 		best_info->score = (maximize_player) ? -1000000 : 1000000;
 		best_info->move = NULL_MOVE;
 		return;
@@ -188,6 +193,7 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 			if (move_status_error) { // illegal move
 				continue;
 			}
+			checked_boards += 1;
 
 			// find max score
 			alphabeta(&board, depth - 1, alpha, beta, FALSE, &response);
