@@ -373,7 +373,6 @@ Bitboard generate_bishop_moves(Board *state, Bitboard bishop, Color color) {
     return possible;
 }
 
-
 Bitboard generate_queen_moves(Board *state, Bitboard queen, Color color) {
 	return generate_rook_moves(state, queen, color) | generate_bishop_moves(state, queen, color);
 }

@@ -1,8 +1,5 @@
 #include "includes/chess.h"
 
-#define CENTER_SQUARES 0x0000003c3c000000
-#define CENTER_PENALTY 5
-
 #define LOOK_AHEAD 5
 
 
@@ -57,29 +54,15 @@ Move select_move(Board *state) {
 	// // get the move ADD BACK IN ZOBRIST HASH
 	// // struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
 
-	// Move move = response.move;
-
-	// if (move == NO_MOVE) {
-	// 	printf("CHECKMATE");
-	// 	return NO_MOVE;
-	// }
-
 	int from_square, to_square, flags;
 	decode_move(best.move, &from_square, &to_square, &flags);
 	
-
 	clock_t end = clock();
 	double time = (double)(end - start) / CLOCKS_PER_SEC;
 	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, best.score, time);
 
 
 	return best.move;
-}
-
-int evaluate_center_control(Board *state, Color color) {
-    uint64_t control = state->attackable[color] & CENTER_SQUARES;
-    int control_score = __builtin_popcountll(control) * CENTER_PENALTY; // Count how many center squares are controlled
-    return control_score;
 }
 
 // in terms of white
@@ -98,12 +81,12 @@ float evaluate_board(Board *state) {
 		return 10000;
 	}
 
-	score += evaluate_center_control(state, WHITE) - evaluate_center_control(state, BLACK);
+	// score += evaluate_center_control(state, WHITE) - evaluate_center_control(state, BLACK);
 
 	// score += 500 * (state->piece_count[for_player][KING] - state->piece_count[!for_player][KING]);
-	score += 25  * (state->piece_count[WHITE][QUEEN] - state->piece_count[BLACK][QUEEN]);
-	score += 13  * (state->piece_count[WHITE][ROOK] - state->piece_count[BLACK][ROOK]);
-	score += 10   * ((state->piece_count[WHITE][BISHOP] - state->piece_count[BLACK][BISHOP]) +
+	score += 100  * (state->piece_count[WHITE][QUEEN] - state->piece_count[BLACK][QUEEN]);
+	score += 25  * (state->piece_count[WHITE][ROOK] - state->piece_count[BLACK][ROOK]);
+	score += 20   * ((state->piece_count[WHITE][BISHOP] - state->piece_count[BLACK][BISHOP]) +
 					 (state->piece_count[WHITE][KNIGHT] - state->piece_count[BLACK][KNIGHT]));
 	score += 1   * (state->piece_count[WHITE][PAWN] - state->piece_count[BLACK][PAWN]);
 
@@ -120,7 +103,7 @@ float evaluate_board(Board *state) {
 		check_score += 1;
 	}
 
-	return score + (attack_score * 0.1) + (1000 * check_score);
+	return score + (attack_score * 0.5) + (100 * check_score);
 }
 
 void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard only_check_mask) {

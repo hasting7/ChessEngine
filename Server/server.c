@@ -150,7 +150,7 @@ void* ai_handler(void *void_args) {
             Move move = select_move(args.chess_board);
             error = move_piece(args.chess_board, move);
             if (error) {
-                printf("error making move");
+                printf("error making move\n");
                 break;
             }
         }
