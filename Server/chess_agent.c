@@ -1,6 +1,14 @@
 #include "includes/chess.h"
 
-#define LOOK_AHEAD 5
+
+// before magic bitboards
+// 6 lookahead
+// 	move 1: ~6 sec
+//	move 2: ~21 sec
+//	move 3: ~30 sec
+
+
+#define LOOK_AHEAD 6
 
 
 Bitboard CHECK_ALL = 0xFFFFFFFFFFFFFFFF;
@@ -13,6 +21,16 @@ static inline int max(int a, int b) {
 static inline int min(int a, int b) {
 	return (a < b) ? a : b;
 }
+
+
+int capture_value[6] = {
+    100,  // PAWN
+    500,  // ROOK
+    320,  // KNIGHT
+    330,  // BISHOP
+    900,  // QUEEN
+    0     // KING (infinite value, but set to 0 for eval purposes)
+};
 
 
 Move select_move(Board *state) {
@@ -41,7 +59,7 @@ Move select_move(Board *state) {
 	}
 
 	struct alphabeta_response result;
-	struct alphabeta_response best = {.score = FLT_MAX, .move = NO_MOVE};
+	struct alphabeta_response best = {.score = INT_MAX, .move = NO_MOVE};
 
 
 	close(pipe_fd[1]);  // Close write end of the pipe
@@ -62,15 +80,15 @@ Move select_move(Board *state) {
 	
 	gettimeofday(&end, NULL);
 	double time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
-	printf("move from %d to %d, score = %.2f took %.2f seconds\n", from_square, to_square, best.score, time);
+	printf("move from %d to %d, score = %d took %.2f seconds\n", from_square, to_square, best.score, time);
 
 
 	return best.move;
 }
 
 // in terms of white
-float evaluate_board(Board *state) {
-	float score = 0;
+int evaluate_board(Board *state) {
+	int score = 0;
 	int attack_score = 0;
 	int check_score = 0;
 
@@ -84,14 +102,12 @@ float evaluate_board(Board *state) {
 		return 10000;
 	}
 
-	// score += evaluate_center_control(state, WHITE) - evaluate_center_control(state, BLACK);
+	if (state->last_capture >= 100) {
+		set_flag(state, TERMINAL, TRUE);
+		return 0;
+	}
 
-	// score += 500 * (state->piece_count[for_player][KING] - state->piece_count[!for_player][KING]);
-	score += 100  * (state->piece_count[WHITE][QUEEN] - state->piece_count[BLACK][QUEEN]);
-	score += 25  * (state->piece_count[WHITE][ROOK] - state->piece_count[BLACK][ROOK]);
-	score += 20   * ((state->piece_count[WHITE][BISHOP] - state->piece_count[BLACK][BISHOP]) +
-					 (state->piece_count[WHITE][KNIGHT] - state->piece_count[BLACK][KNIGHT]));
-	score += 1   * (state->piece_count[WHITE][PAWN] - state->piece_count[BLACK][PAWN]);
+	score += evaluate_pieces(state);
 
 	// make use of number of attack locations
 	Bitboard attack_moves_white = generate_attackable_squares(state, WHITE);
@@ -106,12 +122,19 @@ float evaluate_board(Board *state) {
 		check_score += 1;
 	}
 
-	return score + (attack_score * 0.5) + (100 * check_score);
+	return score + (attack_score * 2) + (500 * check_score);
+}
+
+int sort_key(const void *a, const void *b) {
+	Move *m_a = (Move *) a;
+	Move *m_b = (Move *) b;
+	return check_move_flag(*m_b) - check_move_flag(*m_a);
+
 }
 
 void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard only_check_mask) {
 	// make sure moves less thna MAX_MOVES
-	Move *move_head = move_list;
+	// Move *move_head = move_list;
 	*move_count = 0;
 
 	Color color = state->active_player;
@@ -137,16 +160,20 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 				for (; to_index < 64; to_index++) {
 					if (valid_moves & move_mask && *move_count < MAX_MOVES) {
 						// HERE WE HAVE VALID FROM AND TO INDEXS
-						mflag = 0;
-						if (state->all_pieces[!color] & move_mask) {
-							mflag |= CAPTURE;
+						mflag = 0x0;
+						// flags on range from 0-15 with 15 best move
+						if (state->all_pieces[!color] & move_mask) { // capture
+							Piece victim = piece_on_tile(state,!color,move_mask);
+							Piece attacker = piece_on_tile(state, color, tile_mask);
+							int score = (capture_value[victim] * 10 - capture_value[attacker]) / 600; // 575 is arbitrary to get 8900 to between 0 amd 15
+							// score is [0, 8900]
+							// determine bucket
+							mflag = score + 1;
 						}
 						if ((state->pieces[color][PAWN] & tile_mask) && (move_mask & 0xFF000000000000FF)) {
-							mflag |= PROMOTION;
+							mflag = 0xf;
 						}
-						if (mflag == 0) {
-							mflag = NORMAL;
-						}
+
 						possible_move = encode_move(from_index, to_index, mflag);
 
 						*move_list = possible_move;
@@ -160,27 +187,33 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 		}
 		tile_mask <<= 1;
 	}
-	Move *l_pointer = &move_head[0];
-	Move *r_pointer = &move_head[*move_count - 1];
-	int l_flag, r_flag;
-
-	while (l_pointer < r_pointer) {
-		l_flag = check_move_flag(*l_pointer, NORMAL);
-		r_flag = check_move_flag(*r_pointer, CAPTURE | PROMOTION);
-		if (l_flag && r_flag) {
-			Move temp = *l_pointer;
-			*l_pointer = *r_pointer;
-			*r_pointer = temp;
-			l_pointer++;
-			r_pointer--;
-		}
-		if (!l_flag) {
-			l_pointer++;
-		}
-		if (!r_flag) {
-			r_pointer--;
-		}
+	if (*move_count > 1) {
+		qsort(&move_list, *move_count, sizeof(Move), sort_key);
 	}
+
+	// q sort by flag
+
+	// Move *l_pointer = &move_head[0];
+	// Move *r_pointer = &move_head[*move_count - 1];
+	// int l_flag, r_flag;
+
+	// while (l_pointer < r_pointer) {
+	// 	l_flag = check_move_flag(*l_pointer, NORMAL);
+	// 	r_flag = check_move_flag(*r_pointer, CAPTURE | PROMOTION | CHECK);
+	// 	if (l_flag && r_flag) {
+	// 		Move temp = *l_pointer;
+	// 		*l_pointer = *r_pointer;
+	// 		*r_pointer = temp;
+	// 		l_pointer++;
+	// 		r_pointer--;
+	// 	}
+	// 	if (!l_flag) {
+	// 		l_pointer++;
+	// 	}
+	// 	if (!r_flag) {
+	// 		r_pointer--;
+	// 	}
+	// }
 }
 
 void process_task(Board state, int fd, Bitboard inital_tile) {
@@ -198,7 +231,7 @@ void process_task(Board state, int fd, Bitboard inital_tile) {
 
 void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player, struct alphabeta_response * best_info, Bitboard only_check_mask) {
 	// struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
-	float best_score;
+	int best_score;
 
 	// printf("Depth: %d\n",depth);
 	if (depth == 0 || check_flag(state, TERMINAL)) {
@@ -223,7 +256,7 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 	}
 
 	if (maximize_player == TRUE) {
-		best_score = FLT_MIN;
+		best_score = INT_MIN;
 
 		for (int i = 0; i < move_count; i++) {
 			Board board = *state;
@@ -239,20 +272,22 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 				best_info->move = move_list[i];
 				best_info->score = response.score;
 				best_score = response.score; // this could be removed
-			}
-			if (best_score > beta) {
-				break;
-			}
 
-			alpha = max(alpha, best_score);
+				alpha = max(alpha, best_score);
+				if (alpha >= beta) break;
+			}
+						
 		}
 
 	} else {
-		best_score = FLT_MAX;
+		best_score = INT_MAX;
 
 		for (int i = 0; i < move_count; i++) {
 			Board board = *state;
-			move_piece(&board, move_list[i]);
+			move_status_error = move_piece(&board, move_list[i]);
+			if (move_status_error) { // illegal move
+				continue;
+			}
 
 			
 			// find min score
@@ -262,12 +297,10 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
 				best_info->move = move_list[i];
 				best_info->score = response.score;
 				best_score = response.score; // this could be removed
-			}
-			if (best_score < alpha) {
-				break;
-			}
 
-			beta = min(beta, best_score);
+				beta = min(beta, best_score);
+				if (alpha >= beta) break;
+			}
 		}
 	}
 }

@@ -39,8 +39,10 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
             write(fd, "ERROR", 5);
             return;
         }
+        printf("buffer: %s\n",socket_buff);
         int index = (socket_buff[2] - 'a') * 8 + (socket_buff[3] - '1');
         char *moves = generate_moves_as_string(args.chess_board, index);
+        printf("moves: %s\n",moves);
         write(fd, moves, strlen(moves));
         free(moves);
         return;
@@ -49,6 +51,7 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
             write(fd, "ERROR", 5);
             return;
         }
+        printf("buffer: %s\n",socket_buff);
         int from_index = (socket_buff[2] - 'a') * 8 + (socket_buff[3] - '1');
         int to_index = (socket_buff[5] - 'a') * 8 + (socket_buff[6] - '1');
         Move move = encode_move(from_index, to_index, 0);
@@ -176,6 +179,7 @@ int main(int argc, char **argv) {
     board = create_board();
     init_zobrist_hash(&zobrist, board);
     printf("board_hash: %llu\n", board->z_hash);
+    printf("PST\n\tmidgame: %d\n\tendgame: %d\n",board->pst_scores[MIDGAME],board->pst_scores[ENDGAME]);
 
     // Setup signal handlers.
     struct sigaction act;

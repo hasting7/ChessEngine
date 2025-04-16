@@ -23,6 +23,7 @@ class FEN_String():
 		sections = fen_string.split(' ')
 
 		ranks = sections[0].split('/')
+		self.string = fen_string;
 		self.states = []
 
 		for i, rank in enumerate(ranks):
