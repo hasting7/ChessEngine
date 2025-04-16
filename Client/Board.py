@@ -6,7 +6,7 @@ import chess
 import chess.engine
 
 
-def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", depth=12):
+def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", depth=4):
 
 	board = chess.Board(fen)
 
@@ -17,15 +17,25 @@ def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", depth
 
 	return result.move.from_square, result.move.to_square
 
+
 IMG_SIZE = 45
 
 BLACK = 1
 WHITE = 0
 NONE = -1
 
-HIGHLIGHT_COLOR = 'yellow'
-OPTION_COLOR = 'blue'
-MOVE_COLOR = 'red'
+
+COLORS = [
+	'yellow',
+	'blue',
+	'red',
+	'orange'
+]
+
+SELECTED = 0
+OPTION = 1
+HINT = 2
+LAST = 3
 
 
 class Tile:
@@ -36,6 +46,8 @@ class Tile:
 		self.owner = None
 		self.box = canvas_box
 
+		self.default = self.drawer.itemcget(self.box, "fill")
+
 		coords = self.drawer.coords(self.box)
 		self.size = coords[2] - coords[0]
 		self.img = None
@@ -45,41 +57,35 @@ class Tile:
 			anchor='center', image=self.img
 		)
 
-		self.default_color = self.drawer.itemcget(self.box, "fill")
-		self.tile_name = f"{chr(int(index / 8 + 97))}{chr((index % 8) + 49)}"
-		# self.tile_name = '%d'%self.index;
-		self.title = self.drawer.create_text((coords[0]+coords[2])/2,(coords[1]+coords[3])/2,text=self.tile_name, fill='lime', font=('Arial',24));
-		self.was_updated = False
+		# self.default_color = self.drawer.itemcget(self.box, "fill")
+		self.tile_name = f"{chr((index % 8 + 97))}{chr(int(index / 8) + 49)}"
+		# self.title = self.drawer.create_text((coords[0]+coords[2])/2,(coords[1]+coords[3])/2,text=index, fill='lime', font=('Arial',24));
 		self.set_piece(state, False)
 
-	def highlight(self, color):
-		if self.drawer.player != self.owner or self.drawer.highlighted == self.index:
-			return None
-		self.drawer.itemconfigure(self.box, fill=color, outline=color)
-		return self.index
-
-	def mark_as_option(self):
-		self.drawer.itemconfigure(self.box, fill=OPTION_COLOR, outline=OPTION_COLOR)
-		return self.index
-
 	def unhighlight(self):
-		self.drawer.itemconfigure(self.box, fill=self.default_color, outline=self.default_color)
+		self.drawer.itemconfigure(self.box, fill=self.default,outline=self.default )
+
+	def highlight(self, color):
+		self.drawer.itemconfigure(self.box, fill=color,outline=color)
+
 
 	def set_piece(self, state, optimize=True):
 		if state == self.state and optimize:
-			return
+			return None
 
 		self.state = state
 		if state == EMPTY:
 			self.img = None
 			self.owner = None
 			self.drawer.itemconfigure(self.img_obj, image='')
-			return
+			return self.index
 
 		self.owner = WHITE if state.isupper() else BLACK
 		img_path = os.path.join(os.path.abspath("."), 'sprites', STATE_FILES[self.state])
 		self.img = ImageTk.PhotoImage(Image.open(img_path).convert('RGBA'))
 		self.drawer.itemconfigure(self.img_obj, image=self.img)
+
+		return self.index
 
 
 class Board(Canvas):
@@ -91,117 +97,123 @@ class Board(Canvas):
 		self.tiles = self.create_board(tile_size)
 		self.bind('<Button-1>', self.click)
 
-		self.highlighted = None
-		self.option_tiles = []
-		self.last_move = None
+		self.last_fen = None;
 
-		self.handle_highlight = None
-		self.handle_move = None
+		self.handle_highlight = None;
+		self.handle_move = None;
 
-		self.last_fen = None
-
-	def click(self, event):
-		x, y = int(event.x / self.tile_size), int(event.y / self.tile_size)
-
-		# print(x,y)
-		# print(x,7 - y)
-		# if self.player == BLACK:
-		# 	y = 7 - y
-		# 	# x = 7 - x
-		# # else:
-		# 	# x = 7 - x
-		index = (7 - y) * 8 + x
-
-		print("clicked on:", self.tiles[index].tile_name);
-
-		# Clear previous move highlights
-		if self.last_move:
-			self.tiles[self.last_move[0]].unhighlight()
-			self.tiles[self.last_move[1]].unhighlight()
-			self.last_move = None
-
-		# Move handling
-		if index in self.option_tiles:
-			from_tile = self.highlighted
-			to_tile = index;
-			print("gonna move")
-			fen = self.handle_move(self.tiles[from_tile].tile_name, self.tiles[to_tile].tile_name)
-			self.render_fen(FEN_String(fen))
-
-			for tile in self.option_tiles:
-				self.tiles[tile].unhighlight()
-			self.tiles[self.highlighted].unhighlight()
-
-			# self.tiles[from_tile].highlight(MOVE_COLOR)
-			# self.tiles[to_tile].highlight(MOVE_COLOR)
-			self.last_move = (from_tile, to_tile)
-
-			self.option_tiles = []
-			self.highlighted = None
-			return
-
-		# Clear highlights if new selection
-		if self.highlighted is not None:
-			self.tiles[self.highlighted].unhighlight()
-			for tile in self.option_tiles:
-				self.tiles[tile].unhighlight()
-			self.option_tiles = []
-
-		print('--')
-		print(index);
-		self.highlighted = self.tiles[index].highlight(HIGHLIGHT_COLOR);
-		print(self.highlighted)
-		print('--')
-
-		if self.highlighted is not None:
-			print(self.highlighted)
-			print("higlighed tile:",self.tiles[self.highlighted].tile_name);
-			available = self.handle_highlight(self.tiles[self.highlighted].tile_name)
-			if available != -1:
-				for tile_index in available:
-					self.tiles[tile_index].mark_as_option()
-					self.option_tiles.append(tile_index)
-
-	def create_board(self, tile_size, colors=('#eeeed2','#769656')):
-		offset = (0, 0)
-		board_tiles = []
-		for j in range(7,-1,-1):
-			for i in range(8):
-				obj = self.create_rectangle(
-					offset[0] + i * tile_size,
-					offset[1] + (7-j) * tile_size,
-					offset[0] + (i + 1) * tile_size,
-					offset[1] + ((7-j) + 1) * tile_size,
-					fill=colors[(i + j) % 2],
-					outline=colors[(i + j) % 2]
-				)
-				board_tiles.append(Tile(self, obj, j * 8 + i))
-		return board_tiles
+		self.moves = [set(),set(),set(),set()]
 
 	def highlight_best_move(self, fen):
 		from_idx, to_idx = best_move_for_white(fen)
 		if (from_idx == None): return;
-		print(63 -from_idx,63- to_idx);
+		# print(63 -from_idx,63- to_idx);
 
-		# Unhighlight previous move if needed
-		if self.last_move:
-			self.tiles[self.last_move[0]].unhighlight()
-			self.tiles[self.last_move[1]].unhighlight()
+		self.unhighlight(HINT)
+		self.highlight(from_idx, HINT);
+		self.highlight(to_idx, HINT);
 
-		# Highlight new best move
-		self.tiles[from_idx].highlight('red')
-		self.tiles[to_idx].highlight('red')
+	def unhighlight(self, type):
+		for index in self.moves[type]:
+			keep = False
+			for check_type in [SELECTED, OPTION, HINT, LAST]:
+				# self.tiles[index].unhighlight();
+				if check_type != type and index in self.moves[check_type]:
+					keep = True
+					self.highlight(index, check_type)
+			if not keep:
+				self.tiles[index].unhighlight();
+			
+		self.moves[type] = set();
 
-		self.last_move = (from_idx, to_idx)
+	def highlight(self, tile_index, type):
+		if type == SELECTED and self.tiles[tile_index].owner != self.player: return False
+		self.moves[type].add(tile_index);
+		self.tiles[tile_index].highlight(COLORS[type]);
+		return True
+
+		# MAKE THIS RETURN TRUE ON SUCESS	
+
+
+	def click(self, event):
+		x, y = int(event.x / self.tile_size), int(event.y / self.tile_size)
+		print(x,y);
+
+		index = (7-y) * 8 + x;
+		tile = self.tiles[index]
+		print("clicked on:", index, self.tiles[index].tile_name);
+
+		if index in self.moves[OPTION]:
+			from_index = self.moves[SELECTED].pop()
+			from_rf = self.tiles[from_index].tile_name;
+			self.moves[SELECTED].add(from_index)
+			to_rf = self.tiles[index].tile_name;
+			self.handle_move(from_rf,to_rf);
+
+			self.unhighlight(LAST);
+			self.highlight(from_index,LAST);
+			self.highlight(index,LAST);
+			self.unhighlight(SELECTED);
+			self.unhighlight(OPTION);
+			return;
+
+		new_selection = False
+
+		if index in self.moves[SELECTED]:
+			self.unhighlight(SELECTED);
+			self.unhighlight(OPTION);
+		else:
+			self.unhighlight(SELECTED);
+			if len(self.moves[SELECTED]) == 0 and self.highlight(index, SELECTED):
+				self.highlight(index, SELECTED)
+				new_selection = True
+
+		if new_selection:
+			self.unhighlight(OPTION);
+			tile_resp = self.handle_highlight(self.tiles[index].tile_name)
+			for tile in tile_resp:
+				print(tile)
+				self.highlight(tile, OPTION);
+
+
+	def create_board(self, tile_size, colors=('#eeeed2','#769656')):
+		offset = (0, self.tile_size*8)
+		board_tiles = []
+		k = 0
+		for j in range(8):
+			for i in range(8):
+				obj = self.create_rectangle(
+					offset[0] + i * tile_size,
+					offset[1] - j * tile_size,
+					offset[0] + (i + 1) * tile_size,
+					offset[1] - (j + 1) * tile_size,
+					fill=colors[(i + j) % 2],
+					outline=colors[(i + j) % 2]
+				)
+				board_tiles.append(Tile(self, obj, k))
+				k += 1;
+		return board_tiles
 
 	def render_fen(self, fen_string):
 		if (fen_string.string == self.last_fen): return;
 		self.last_fen = fen_string.string
 		print(fen_string.string)
-		for tile, state in zip(self.tiles, fen_string.states):
-			tile.set_piece(state)
 
-		self.highlight_best_move(fen_string.string);
+		self.unhighlight(LAST);
+
+		# tiles = self.tiles;
+		for i in range(7,-1,-1):
+			i_rev = (7 - i) * 8
+			i *= 8;
+			print(i,i+8, i_rev, i_rev+8)
+			for tile, state in zip(self.tiles[i:i+8], fen_string.states[i_rev:i_rev+8]):
+				updated_index = tile.set_piece(state)
+				if updated_index != None:
+					self.highlight(updated_index,LAST);
+
+
+		# self.highlight_best_move(self.last_fen)
+
 
 
 class App(Tk):

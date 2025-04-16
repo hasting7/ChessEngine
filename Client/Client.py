@@ -56,7 +56,9 @@ class Client():
 		if content == '-1': return []
 
 		for tile in content.split(','):
-			index = (ord(tile[0]) - 97) * 8 + (ord(tile[1]) - 49);
+			print(tile, ord('a'))
+			index = (ord(tile[0]) - ord('a')) + (ord(tile[1]) - ord('1')) * 8;
+			print(index)
 
 			tile_indicies.append(index)
 

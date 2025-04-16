@@ -440,8 +440,9 @@ char *generate_moves_as_string(Board *state, int tile_index) {
 		uint64_t mask = 1ULL;
 		for (int i = 0; i < 64; i++) {
 			if (moves_list & mask) {
-				rank = (i % 8) + 49;
-				file = i / 8 + 97;
+				printf("to_index: %d\n",i);
+				file = ('h' - (i % 8));
+				rank = i / 8 + '1';
 				buffer[len++] = file;
 				buffer[len++] = rank;
 				buffer[len++] = ',';

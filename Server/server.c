@@ -39,10 +39,11 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
             write(fd, "ERROR", 5);
             return;
         }
-        printf("buffer: %s\n",socket_buff);
-        int index = (socket_buff[2] - 'a') * 8 + (socket_buff[3] - '1');
+        // printf("buffer: %s\n",socket_buff);
+        int index =(7 -(socket_buff[2] - 'a')) + (socket_buff[3] - '1') * 8;
+        // printf("INDEX: %d\n",index);
         char *moves = generate_moves_as_string(args.chess_board, index);
-        printf("moves: %s\n",moves);
+        // printf("moves: %s\n",moves);
         write(fd, moves, strlen(moves));
         free(moves);
         return;
@@ -51,9 +52,10 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
             write(fd, "ERROR", 5);
             return;
         }
-        printf("buffer: %s\n",socket_buff);
-        int from_index = (socket_buff[2] - 'a') * 8 + (socket_buff[3] - '1');
-        int to_index = (socket_buff[5] - 'a') * 8 + (socket_buff[6] - '1');
+        // printf("buffer: %s\n",socket_buff);
+        int from_index = (7 - (socket_buff[2] - 'a')) + (socket_buff[3] - '1') * 8;
+        int to_index = (7 - (socket_buff[5] - 'a')) + (socket_buff[6] - '1') * 8;
+        // printf("FROM: %d, TO: %d\n",from_index,to_index);
         Move move = encode_move(from_index, to_index, 0);
         move_piece(args.chess_board, move);
         char *fen = board_to_fen(args.chess_board);
