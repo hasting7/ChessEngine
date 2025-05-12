@@ -30,6 +30,13 @@ int evaluate_pieces(Board *state) {
 }
 
 int rook_bonus(Board *state) {
+	// Bitboard rank = 0x00000000000000FF;
+	// Bitboard file = 0x0101010101010101;
+
+	// files better than row
+	// my color & rook & file
+
+	// open file / rank
 	return 0;
 }
 

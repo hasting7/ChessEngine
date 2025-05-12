@@ -29,7 +29,7 @@ int capture_value[6] = {
     320,  // KNIGHT
     330,  // BISHOP
     900,  // QUEEN
-    0     // KING (infinite value, but set to 0 for eval purposes)
+    0     // KING
 };
 
 
@@ -81,7 +81,7 @@ Move select_move(Board *state) {
 	gettimeofday(&end, NULL);
 	double time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1e6;
 	printf("move from %d to %d, score = %d took %.2f seconds\n", from_square, to_square, best.score, time);
-
+	printf("PST\n\tmidgame: %d\n\tendgame: %d\n",board->pst_scores[MIDGAME],board->pst_scores[ENDGAME]);
 
 	return best.move;
 }
@@ -122,7 +122,7 @@ int evaluate_board(Board *state) {
 		check_score += 1;
 	}
 
-	return score + (attack_score * 2) + (500 * check_score);
+	return score + (attack_score * 2) + (200 * check_score);
 }
 
 int sort_key(const void *a, const void *b) {
@@ -190,30 +190,6 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 	if (*move_count > 1) {
 		qsort(&move_list, *move_count, sizeof(Move), sort_key);
 	}
-
-	// q sort by flag
-
-	// Move *l_pointer = &move_head[0];
-	// Move *r_pointer = &move_head[*move_count - 1];
-	// int l_flag, r_flag;
-
-	// while (l_pointer < r_pointer) {
-	// 	l_flag = check_move_flag(*l_pointer, NORMAL);
-	// 	r_flag = check_move_flag(*r_pointer, CAPTURE | PROMOTION | CHECK);
-	// 	if (l_flag && r_flag) {
-	// 		Move temp = *l_pointer;
-	// 		*l_pointer = *r_pointer;
-	// 		*r_pointer = temp;
-	// 		l_pointer++;
-	// 		r_pointer--;
-	// 	}
-	// 	if (!l_flag) {
-	// 		l_pointer++;
-	// 	}
-	// 	if (!r_flag) {
-	// 		r_pointer--;
-	// 	}
-	// }
 }
 
 void process_task(Board state, int fd, Bitboard inital_tile) {

@@ -407,6 +407,10 @@ Bitboard generate_king_moves(Board *state, Bitboard king, Color color) {
 	possible |= (king << 9) & ~state->all_pieces[color] & NOT_A_FILE;
 	possible |= (king >> 7) & ~state->all_pieces[color] & NOT_A_FILE;
 	possible |= (king >> 9) & ~state->all_pieces[color] & NOT_H_FILE; 
+
+	// castling
+	
+	
    return possible;
 }
 
@@ -440,7 +444,6 @@ char *generate_moves_as_string(Board *state, int tile_index) {
 		uint64_t mask = 1ULL;
 		for (int i = 0; i < 64; i++) {
 			if (moves_list & mask) {
-				printf("to_index: %d\n",i);
 				file = ('h' - (i % 8));
 				rank = i / 8 + '1';
 				buffer[len++] = file;

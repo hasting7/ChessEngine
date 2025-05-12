@@ -6,17 +6,19 @@ import chess
 import chess.engine
 
 
-def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", depth=4):
-
+def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", elo=1320):
 	board = chess.Board(fen)
-
 	engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-
-	result = engine.play(board, chess.engine.Limit(depth=depth))
+	
+	# Set engine to desired Elo rating
+	engine.configure({"UCI_LimitStrength": True, "UCI_Elo": elo})
+	
+	# You can still set a move-time limit or depth for quicker response
+	result = engine.play(board, chess.engine.Limit(time=0.1))
+	
 	engine.quit()
-
+	
 	return result.move.from_square, result.move.to_square
-
 
 IMG_SIZE = 45
 
@@ -196,7 +198,7 @@ class Board(Canvas):
 
 	def render_fen(self, fen_string):
 		if (fen_string.string == self.last_fen): return;
-		self.last_fen = fen_string.string
+		
 		print(fen_string.string)
 
 		self.unhighlight(LAST);
@@ -208,8 +210,10 @@ class Board(Canvas):
 			print(i,i+8, i_rev, i_rev+8)
 			for tile, state in zip(self.tiles[i:i+8], fen_string.states[i_rev:i_rev+8]):
 				updated_index = tile.set_piece(state)
-				if updated_index != None:
+				if self.last_fen != None and updated_index != None:
 					self.highlight(updated_index,LAST);
+
+		self.last_fen = fen_string.string
 
 
 		# self.highlight_best_move(self.last_fen)

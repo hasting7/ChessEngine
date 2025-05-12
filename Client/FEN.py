@@ -21,6 +21,8 @@ EMPTY = ''
 class FEN_String():
 	def __init__(self, fen_string=DEFAULT_FEN):
 		sections = fen_string.split(' ')
+		self.half_moves = int(sections[4])
+		self.turn = int(sections[5])
 
 		ranks = sections[0].split('/')
 		self.string = fen_string;
