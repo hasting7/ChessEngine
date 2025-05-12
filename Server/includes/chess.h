@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -1,8 +1,5 @@
 #include "includes/chess.h"
 
-const int CAPTURE = 2;
-const int NORMAL = 1;
-
 Move encode_move(int from_index, int to_index, int flags) {
 	// use flags for castling or promotion or en passant
 	return (from_index & 0x3F) | ((to_index & 0x3F) << 6) | ((flags & 0xF) << 12);
@@ -15,8 +12,8 @@ void decode_move(Move move, int *from_index, int *to_index, int *flags) {
 	*flags = (move >> 12) & 0xF;
 }
 
-int check_move_flag(Move move, int flags) {
-	return (((move >> 12) & 0xF) & flags) == flags;
+int check_move_flag(Move move) {
+	return ((move >> 12) & 0xF);
 }
 
 int is_color_turn(Board *board, Color color) {
@@ -36,6 +33,7 @@ void pawn_promote(Board *state, int pawn_location) {
 	state->piece_count[player][PAWN] -= 1;
 	state->pieces[player][QUEEN] |= tile_mask;
 	state->piece_count[player][QUEEN] += 1;
+	state->all_pieces[player] |= tile_mask;
 
 }
 
@@ -72,7 +70,14 @@ int move_piece(Board *state, Move move) {
 
 	Piece piece = piece_on_tile(state, moving_color, from_mask);
 
+	if (piece == PAWN) {
+		state->last_capture = 0;
+	} else {
+		state->last_capture += 1;
+	}
+	state->move_count += 1;
 	if ((1ULL << to_index) & state->all_pieces[!moving_color]) {
+		state->last_capture = 0;
 		// printf("capture! %d to %d\n",from_index,to_index);
 
 		Piece capture_piece = piece_on_tile(state, !moving_color, to_mask);
@@ -86,8 +91,16 @@ int move_piece(Board *state, Move move) {
 		state->pieces[!moving_color][capture_piece] ^= to_mask;
 		state->all_pieces[!moving_color] ^= to_mask;
 		state->piece_count[!moving_color][capture_piece] -= 1;
+
+		// update pst for capture
+		pst_remove_piece(state, !moving_color, capture_piece, to_index); // remove captured piece
+		
 	}
+	// update pst for normal move
+	pst_remove_piece(state, moving_color, piece, from_index); // remove piece being moved;
+	
 	update_hash ^= update_zobrist_move(from_index, to_index, piece, moving_color);
+	
 
 	// update bitboards
 
@@ -96,7 +109,11 @@ int move_piece(Board *state, Move move) {
 
 	if (piece == PAWN && (to_mask & 0xFF000000000000FF)) {
 		pawn_promote(state, to_index);
+
+		piece = QUEEN;
 	}
+
+	pst_add_piece(state, moving_color, piece, to_index); // add piece to to location (after pawn promote just in case)
 
 	// check checks, only check player about to be
 
@@ -164,9 +181,12 @@ Board * create_board() {
 	board->attackable[BLACK] = 0LLU;
 	// initalize hash
 	board->active_player = WHITE;
-	board->move_count = 0;
+	board->move_count = 2;
 	board->last_capture = 0;
 	board->flags = 0;
+	board->pst_scores[MIDGAME] = 0;
+	board->pst_scores[ENDGAME] = 0;
+	initialize_pst(board);
 
 	return board;
 };
@@ -221,7 +241,7 @@ Bitboard generate_moves(Board *state, int tile_index, int account_for_check) {
 
 	// add check check
 	BoardFlag flag = (color == WHITE) ? WHITE_CHECK : BLACK_CHECK;
-	if (moves && check_flag(state, flag) && account_for_check) {
+	if (moves && account_for_check) {
 		// Bitboard copy = moves;
 		Bitboard to_mask = 1ULL;
 		Move check_move;
@@ -373,7 +393,6 @@ Bitboard generate_bishop_moves(Board *state, Bitboard bishop, Color color) {
     return possible;
 }
 
-
 Bitboard generate_queen_moves(Board *state, Bitboard queen, Color color) {
 	return generate_rook_moves(state, queen, color) | generate_bishop_moves(state, queen, color);
 }
@@ -388,6 +407,10 @@ Bitboard generate_king_moves(Board *state, Bitboard king, Color color) {
 	possible |= (king << 9) & ~state->all_pieces[color] & NOT_A_FILE;
 	possible |= (king >> 7) & ~state->all_pieces[color] & NOT_A_FILE;
 	possible |= (king >> 9) & ~state->all_pieces[color] & NOT_H_FILE; 
+
+	// castling
+	
+	
    return possible;
 }
 
@@ -421,8 +444,8 @@ char *generate_moves_as_string(Board *state, int tile_index) {
 		uint64_t mask = 1ULL;
 		for (int i = 0; i < 64; i++) {
 			if (moves_list & mask) {
-				rank = (i % 8) + 49;
-				file = i / 8 + 97;
+				file = ('h' - (i % 8));
+				rank = i / 8 + '1';
 				buffer[len++] = file;
 				buffer[len++] = rank;
 				buffer[len++] = ',';
@@ -459,8 +482,8 @@ char *board_to_fen(Board *state) {
 	int row_spaces_counted = 0;
 	char run_length_char;
 
-	Bitboard iterator = 1ULL;
-	for (int i = 0; i < 64; i++) {
+	Bitboard iterator = (1ULL << 63);
+	for (int i = 63; i >= 0; i--) {
 		if (state->all_pieces[WHITE] & iterator) {
 			switch (piece_on_tile(state, WHITE, iterator)) {
 				case PAWN:
@@ -539,7 +562,7 @@ char *board_to_fen(Board *state) {
 		}
 
 		row_spaces_counted += 1;
-		iterator = iterator << 1;
+		iterator >>= 1;
 	}
 	if (empty_run) {
 		run_length_char = 48 + empty_run;
@@ -550,13 +573,50 @@ char *board_to_fen(Board *state) {
 	fen_string[fen_len++] = ' ';
 	fen_string[fen_len++] = (state->active_player == WHITE) ? WHITE_STR : BLACK_STR;
 	fen_string[fen_len++] = ' ';
+	// castling
 	fen_string[fen_len++] = '-';
 	fen_string[fen_len++] = ' ';
+	//en passent
 	fen_string[fen_len++] = '-';
 	fen_string[fen_len++] = ' ';
-	fen_string[fen_len++] = '-';
+
+	int half_move = state->last_capture;
+	int full_move = state->move_count / 2;
+	char buffer[10];
+	char *curr_char;
+	int buff_len = 0;
+	int display_char;
+
+	if (half_move == 0) {
+		fen_string[fen_len++] = '0';
+	} else {
+		while (half_move > 0) {
+			display_char = half_move % 10;
+			half_move = half_move / 10;
+			buffer[buff_len++] = '0' + display_char;
+		}
+		curr_char = &buffer[buff_len-1];
+		while (&buffer[0] <= curr_char) {
+			fen_string[fen_len++] = *(curr_char--);
+
+		}
+	}
 	fen_string[fen_len++] = ' ';
-	fen_string[fen_len++] = '-';
+
+	// full move
+	
+	buff_len = 0;
+
+	while (full_move > 0) {
+		display_char = full_move % 10;
+		full_move = full_move / 10;
+		buffer[buff_len++] = '0' + display_char;
+	}
+	curr_char = &buffer[buff_len-1];
+	while (&buffer[0] <= curr_char) {
+		fen_string[fen_len++] = *(curr_char--);
+
+	}
 
 
 	char *return_string = malloc(sizeof(char) * (fen_len + 1));

@@ -36,10 +36,15 @@ typedef enum flag_name_enum {
     TERMINAL
 } BoardFlag;
 
+typedef enum game_stage_enum {
+    MIDGAME = 0,
+    ENDGAME,
+} GameStage;
 
 typedef uint64_t Hash;
 typedef uint64_t Bitboard;
 typedef uint16_t Move;
+typedef int PST[2][64];
 
 #define NULL_MOVE (0);
 
@@ -55,6 +60,7 @@ typedef struct board_struct {
     Bitboard attackable[2];
     uint8_t piece_count[2][6];
     Hash z_hash;
+    int pst_scores[2];
     int move_count;
     int last_capture;
     Color active_player;
@@ -104,7 +110,9 @@ struct thread_args {
 
 struct alphabeta_response {
     Move move;
-    float score;
+    int score;
 };
+
+
 
 #endif // STRUCTS_H

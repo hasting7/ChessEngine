@@ -48,7 +48,7 @@ class Client():
 		return "OK", response;
 
 	def handle_highlight(self, rf_name):
-		print(rf_name);
+		print("name",rf_name);
 		status, content = self.take_action(GENERATE, [rf_name])
 
 		tile_indicies = []
@@ -56,7 +56,9 @@ class Client():
 		if content == '-1': return []
 
 		for tile in content.split(','):
-			index = (ord(tile[0]) - 97) * 8 + (ord(tile[1]) - 49);
+			print(tile, ord('a'))
+			index = (ord(tile[0]) - ord('a')) + (ord(tile[1]) - ord('1')) * 8;
+			print(index)
 
 			tile_indicies.append(index)
 
@@ -83,7 +85,7 @@ class Client():
 			if curr_time - last_update > delta:
 				last_update = delta
 				status, content = self.take_action(VIEW, None)
-				print(content)
+				# print(content)
 				self.chess_app.board.render_fen(FEN_String(content))
 
 
