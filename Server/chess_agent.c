@@ -43,7 +43,8 @@ Move select_move(Board *state) {
 
 	int pipe_fd[2];
 	int children_procs = 0;
-	pipe(pipe_fd);
+        int pipe_res = pipe(pipe_fd);
+        (void)pipe_res;
 
 	pid_t pid;
 
@@ -67,7 +68,8 @@ Move select_move(Board *state) {
 
 	close(pipe_fd[1]);  // Close write end of the pipe
     for (int i = 0; i < children_procs; i++) {
-        read(pipe_fd[0], &result, sizeof(result));  // Read result from the pipe
+        ssize_t r = read(pipe_fd[0], &result, sizeof(result));  // Read result from the pipe
+        (void)r;
         // printf("Received result from child %d: %f %d\n", i, result.score, result.move);
 
         if (result.score < best.score) {
@@ -204,7 +206,8 @@ void process_task(Board state, int fd, Bitboard inital_tile) {
 	alphabeta(&state, LOOK_AHEAD, INT_MIN, INT_MAX, FALSE, &response, inital_tile);
 
 
-	write(fd, &response, sizeof(response));
+        ssize_t w = write(fd, &response, sizeof(response));
+        (void)w;
 	exit(0);
 }
 
