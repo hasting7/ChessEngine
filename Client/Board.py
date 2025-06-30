@@ -101,7 +101,7 @@ class Board(Canvas):
         """Resize the board and all sprites to a new tile size."""
         self.tile_size = tile_size
         board_size = tile_size * 8
-        self.config(width=board_size, height=board_size)
+        self.config(width=board_size + self.boarder_thickness * 2, height=board_size + self.boarder_thickness * 2)
 
         for idx, tile in enumerate(self.tiles):
             j, i = divmod(idx, 8)
