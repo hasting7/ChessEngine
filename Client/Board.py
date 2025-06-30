@@ -20,8 +20,6 @@ def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", elo=1
     
     return result.move.from_square, result.move.to_square
 
-IMG_SIZE = 45
-
 BLACK = 1
 WHITE = 0
 NONE = -1
@@ -87,7 +85,10 @@ class Tile:
 
         self.owner = WHITE if state.isupper() else BLACK
         img_path = os.path.join(os.path.abspath("."), 'sprites', STATE_FILES[self.state])
-        self.img = ImageTk.PhotoImage(Image.open(img_path).convert('RGBA'))
+        image = Image.open(img_path).convert('RGBA')
+        if image.size[0] != self.size or image.size[1] != self.size:
+            image = image.resize((int(self.size), int(self.size)), Image.LANCZOS)
+        self.img = ImageTk.PhotoImage(image)
         self.drawer.itemconfigure(self.img_obj, image=self.img)
 
         return self.index
@@ -251,11 +252,13 @@ class App(Tk):
         super().__init__()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
-        self.size = size
+        tile_size = min(size) // 8
+        board_size = tile_size * 8
+        self.size = (board_size, board_size)
         self.color = color
 
         self.resizable(0, 0)
-        self.geometry(f"{size[0]}x{size[1]+100}+{(screen_width // 2) - (size[0] // 2)}+{(screen_height // 2) - (size[1] // 2)}")
+        self.geometry(f"{board_size}x{board_size + 120}+{(screen_width // 2) - (board_size // 2)}+{(screen_height // 2) - ((board_size + 120) // 2)}")
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
@@ -264,15 +267,19 @@ class App(Tk):
 
         self.board = Board(
             self.color,
-            size[0] / 8,
+            tile_size,
             self.frame,
-            width=size[0],
-            height=size[1],
+            width=board_size,
+            height=board_size,
             highlightthickness=0,
             bd=0,
             bg='#f0d9b5'
         )
         self.board.pack()
+
+        color_text = "White" if self.color == WHITE else "Black"
+        self.color_label = Label(self, text=f"You are {color_text}", font=('Arial', 12))
+        self.color_label.pack()
 
         self.reset_btn = Button(self, text="Reset Board", command=self.reset)
         self.reset_btn.pack(side=BOTTOM);
