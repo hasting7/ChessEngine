@@ -28,7 +28,7 @@ class Client():
 			self.viewer = True
 			self.color = 0
 
-		self.chess_app = App((600,600), self.color, self.handle_highlight, self.handle_move, self.quit_game, self.reset_board);
+		self.chess_app = App((400,400), self.color, self.handle_highlight, self.handle_move, self.quit_game, self.reset_board);
 
 	def quit_game(self):
 		self.ready_quit = True
