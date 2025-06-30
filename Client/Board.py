@@ -87,7 +87,9 @@ class Tile:
 
         self.owner = WHITE if state.isupper() else BLACK
         img_path = os.path.join(os.path.abspath("."), 'sprites', STATE_FILES[self.state])
-        self.img = ImageTk.PhotoImage(Image.open(img_path).convert('RGBA'))
+        img = Image.open(img_path).convert('RGBA')
+        img = img.resize((int(self.size), int(self.size)), Image.LANCZOS)
+        self.img = ImageTk.PhotoImage(img)
         self.drawer.itemconfigure(self.img_obj, image=self.img)
 
         return self.index
@@ -112,6 +114,8 @@ class Board(Canvas):
         self.moves = [set(), set(), set(), set()]
 
     def create_mappings(self):
+        """Create mappings between board indices and FEN indices based on
+        player perspective."""
         self.board_to_fen = []
         self.fen_to_board = []
         for idx in range(64):
@@ -254,13 +258,17 @@ class App(Tk):
         self.size = size
         self.color = color
 
+        border = 20
+
         self.resizable(0, 0)
-        self.geometry(f"{size[0]}x{size[1]+100}+{(screen_width // 2) - (size[0] // 2)}+{(screen_height // 2) - (size[1] // 2)}")
+        self.geometry(
+            f"{size[0]+border}x{size[1]+100+border}+{(screen_width // 2) - ((size[0]+border) // 2)}+{(screen_height // 2) - ((size[1]+border) // 2)}"
+        )
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
-        self.frame = Frame(self, bg='#b58863', bd=10)
-        self.frame.pack()
+        self.frame = Frame(self, bg='#b58863', bd=border//2)
+        self.frame.pack(pady=(border//2, 0))
 
         self.board = Board(
             self.color,
@@ -273,6 +281,13 @@ class App(Tk):
             bg='#f0d9b5'
         )
         self.board.pack()
+
+        self.color_label = Label(
+            self,
+            text=f"You are {'White' if self.color == WHITE else 'Black'}",
+            font=('Arial', 12)
+        )
+        self.color_label.pack(side=TOP, pady=5)
 
         self.reset_btn = Button(self, text="Reset Board", command=self.reset)
         self.reset_btn.pack(side=BOTTOM);
