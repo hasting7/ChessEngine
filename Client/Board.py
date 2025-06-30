@@ -95,10 +95,11 @@ class Tile:
 
 
 class Board(Canvas):
-    def __init__(self, player_color, tile_size, *args, **kwargs):
+    def __init__(self, player_color, tile_size, boarder_size, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tile_size = tile_size
         self.player = player_color
+        self.boarder_thickness = boarder_size
 
         self.create_mappings()
         self.tiles = self.create_board(tile_size)
@@ -164,7 +165,7 @@ class Board(Canvas):
 
 
     def click(self, event):
-        x, y = int(event.x / self.tile_size), int(event.y / self.tile_size)
+        x, y = int((event.x - self.boarder_thickness) / self.tile_size), int((event.y - self.boarder_thickness) / self.tile_size)
         print(x,y);
 
         index = (7 - y) * 8 + x
@@ -215,10 +216,10 @@ class Board(Canvas):
                 r, c = divmod(board_pos, 8)
                 color = colors[(r + c) % 2]
                 obj = self.create_rectangle(
-                    offset[0] + i * tile_size,
-                    offset[1] - j * tile_size,
-                    offset[0] + (i + 1) * tile_size,
-                    offset[1] - (j + 1) * tile_size,
+                    offset[0] + i * tile_size + self.boarder_thickness,
+                    offset[1] - j * tile_size + self.boarder_thickness,
+                    offset[0] + (i + 1) * tile_size + self.boarder_thickness,
+                    offset[1] - (j + 1) * tile_size + self.boarder_thickness,
                     fill=color,
                     outline=color
                 )
@@ -229,21 +230,26 @@ class Board(Canvas):
     def draw_labels(self):
         """Draw file (a-h) and rank (1-8) labels around the board."""
         board_size = self.tile_size * 8
-        files = 'abcdefgh' if self.player == WHITE else 'hgfedcba'
-        ranks = '12345678' if self.player == WHITE else '87654321'
+        files = 'ABCDEFGH' 
+        ranks = '12345678'
+
+        if self.player == BLACK: files = files[::-1]
+        if self.player == BLACK: ranks = ranks[::-1]
 
         label_font = ('Arial', int(self.tile_size * 0.3))
 
+        margin = 0.17
+
         # file labels along the bottom
         for i, f in enumerate(files):
-            x = (i + 0.5) * self.tile_size
-            y = board_size - self.tile_size * 0.1
+            x = (i + 0.5) * self.tile_size + self.boarder_thickness
+            y = board_size - self.tile_size * -margin + self.boarder_thickness
             self.create_text(x, y, text=f, font=label_font)
 
         # rank labels along the left side
         for i, r in enumerate(ranks):
-            x = self.tile_size * 0.1
-            y = board_size - (i + 0.5) * self.tile_size
+            x = self.tile_size * -margin + self.boarder_thickness
+            y = board_size - (i + 0.5) * self.tile_size + self.boarder_thickness
             self.create_text(x, y, text=r, font=label_font)
 
     def render_fen(self, fen_string):
@@ -277,31 +283,32 @@ class App(Tk):
         board_size = tile_size * 8
         self.size = (board_size, board_size)
         self.color = color
+        boarder_thickness = 40
 
         self.resizable(0, 0)
-        self.geometry(f"{board_size}x{board_size + 120}+{(screen_width // 2) - (board_size // 2)}+{(screen_height // 2) - ((board_size + 120) // 2)}")
+        self.geometry(f"{board_size + boarder_thickness * 2}x{board_size + 25 + boarder_thickness * 2}+{(screen_width // 2) - (board_size // 2)}+{(screen_height // 2) - ((board_size + 120) // 2)}")
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
-        # Darker wooden border around the board
-        self.frame = Frame(self, bg='#8b4513', bd=70)
-        self.frame.pack()
+        
+
 
         self.board = Board(
             self.color,
             tile_size,
-            self.frame,
-            width=board_size,
-            height=board_size,
+            boarder_thickness,
+            self,
+            width=board_size + 2 * boarder_thickness,
+            height=board_size + 2 * boarder_thickness,
             highlightthickness=0,
             bd=0,
-            bg='#f0d9b5'
+            bg='#4f301f'
         )
         self.board.pack()
 
-        color_text = "White" if self.color == WHITE else "Black"
-        self.color_label = Label(self, text=f"You are {color_text}", font=('Arial', 12))
-        self.color_label.pack()
+        # color_text = "White" if self.color == WHITE else "Black"
+        # self.color_label = Label(self, text=f"You are {color_text}", font=('Arial', 12))
+        # self.color_label.pack()
 
         self.reset_btn = Button(self, text="Reset Board", command=self.reset)
         self.reset_btn.pack(side=BOTTOM);
@@ -335,6 +342,6 @@ if __name__ == '__main__':
     def dummy_move(frm, to):
         return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-    app = App((900, 900), WHITE, dummy_highlight, dummy_move, lambda: None)
+    app = App((500, 500), WHITE, dummy_highlight, dummy_move, lambda: None)
     app.board.render_fen(FEN_String())
     app.mainloop()
