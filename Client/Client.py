@@ -2,6 +2,7 @@ import socket, datetime, sys, json, os, time
 from Client.Board import App
 from Client.FEN import FEN_String
 
+IP = '127.0.0.1'
 PORT = 6000
 BUFFER_SIZE = 1000;
 
@@ -10,11 +11,12 @@ VIEW = 1
 UNDO = 2
 GENERATE = 3
 GET_COLOR = 4
+RESET = 5
 
 class Client():
 	def __init__(self):
 		self.server = socket.socket()
-		self.server.connect(('127.0.0.1', PORT))
+		self.server.connect((IP, PORT))
 		self.ready_quit = False
 		self.viewer = False
 
@@ -28,7 +30,7 @@ class Client():
 			self.viewer = True
 			self.color = 0
 
-		self.chess_app = App((500,500), self.color, self.handle_highlight, self.handle_move, self.quit_game);
+		self.chess_app = App((500,500), self.color, self.handle_highlight, self.handle_move, self.quit_game, self.reset_board);
 
 		status, content = self.take_action(VIEW, None)
 		self.chess_app.board.render_fen(FEN_String(content))
@@ -42,6 +44,7 @@ class Client():
 		action_name = "%s"%action_name
 		final_call = action_name + " " + " ".join([str(arg) for arg in args]) if args else action_name
 		final_call += "\n\n";
+		print(final_call)
 		self.server.send(final_call.encode())
 
 		response = self.server.recv(buffer_size).decode()
@@ -69,6 +72,10 @@ class Client():
 
 		return content
 
+	def reset_board(self):
+		status, content = self.take_action(RESET, None)
+		print(status, content)
+
 
 	def mainloop(self):
 		last_update = time.time()
@@ -85,7 +92,7 @@ class Client():
 			if curr_time - last_update > delta:
 				last_update = delta
 				status, content = self.take_action(VIEW, None)
-				# print(content)
+				print(content)
 				self.chess_app.board.render_fen(FEN_String(content))
 
 

@@ -71,6 +71,11 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
         buffer[1] = '\0';
         write(fd, buffer, 1);
         return;
+    } else if (cmd == RESTART) {
+        reset_board(&board);
+        printf("reset board\n");
+        write(fd, "RESET", 5);
+        return;
     }
     write(fd, "ERROR", 5);
     return;

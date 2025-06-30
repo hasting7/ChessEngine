@@ -3,6 +3,7 @@
 #include "structs.h"
 // BOARD PROTOTYPES
 
+void reset_board(Board **);
 Board * create_board();
 char *board_to_fen(Board *);
 Piece piece_on_tile(Board *, Color, Bitboard);
