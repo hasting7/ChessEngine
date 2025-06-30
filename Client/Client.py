@@ -46,7 +46,7 @@ class Client():
 		action_name = "%s"%action_name
 		final_call = action_name + " " + " ".join([str(arg) for arg in args]) if args else action_name
 		final_call += "\n\n";
-		print(final_call)
+		# print(final_call)
 		self.server.send(final_call.encode())
 		response = self.server.recv(buffer_size).decode()
 		return "OK", response
@@ -57,12 +57,14 @@ class Client():
 		if content == "-1":
 			return []
 
-			tile_indices = []
-			for tile in content.split(","):
-				file = ord(tile[0]) - ord("a")
-				rank = ord(tile[1]) - ord("1")
-				index = (7 - rank) * 8 + file
-				tile_indices.append(index)
+		tile_indices = []
+		for tile in content.split(","):
+			file = ord(tile[0]) - ord("a")
+			rank = ord(tile[1]) - ord("1")
+			index = (7 - rank) * 8 + file
+			tile_indices.append(index)
+
+		print(tile_indices)
 
 		return tile_indices
 
@@ -92,7 +94,7 @@ class Client():
 			if curr_time - last_update > delta:
 				last_update = delta
 				status, content = self.take_action(VIEW, None)
-				print(content)
+				# print(content)
 				self.chess_app.board.render_fen(FEN_String(content))
 
 

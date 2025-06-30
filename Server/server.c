@@ -44,9 +44,9 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
         }
         // printf("buffer: %s\n",socket_buff);
         int index =(7 -(socket_buff[2] - 'a')) + (socket_buff[3] - '1') * 8;
-        // printf("INDEX: %d\n",index);
+        printf("INDEX: %d\n",index);
         char *moves = generate_moves_as_string(args.chess_board, index);
-        // printf("moves: %s\n",moves);
+        printf("moves: %s\n",moves);
         ssize_t w = write(fd, moves, strlen(moves));
         (void)w;
         free(moves);

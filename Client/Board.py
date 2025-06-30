@@ -262,7 +262,7 @@ class App(Tk):
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
-        self.frame = Frame(self, bg='#b58863', bd=10)
+        self.frame = Frame(self, bg='#b58863', bd=50)
         self.frame.pack()
 
         self.board = Board(
