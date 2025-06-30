@@ -122,10 +122,10 @@ class Board(Canvas):
 
         for idx, tile in enumerate(self.tiles):
             j, i = divmod(idx, 8)
-            x1 = i * tile_size
-            x2 = (i + 1) * tile_size
-            y1 = board_size - j * tile_size
-            y2 = board_size - (j + 1) * tile_size
+            x1 = i * tile_size + self.boarder_thickness
+            x2 = (i + 1) * tile_size + self.boarder_thickness
+            y1 = board_size - j * tile_size + self.boarder_thickness
+            y2 = board_size - (j + 1) * tile_size + self.boarder_thickness
             self.coords(tile.box, x1, y1, x2, y2)
             self.coords(tile.img_obj, x1 + tile_size/2, y2 + tile_size/2)
             tile.size = tile_size
@@ -300,24 +300,26 @@ class App(Tk):
         super().__init__()
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
+
+        self.boarder_thickness = 40
         tile_size = min(size) // 8
         board_size = tile_size * 8
         self.size = (board_size, board_size)
         self.color = color
-        boarder_thickness = 40
+        
 
 #         self.resizable(0, 0)
-        self.geometry(f"{board_size + boarder_thickness * 2}x{board_size + 25 + boarder_thickness * 2}+{(screen_width // 2) - (board_size // 2)}+{(screen_height // 2) - ((board_size + 120) // 2)}")
+        self.geometry(f"{board_size + self.boarder_thickness * 2}x{board_size + 25 + self.boarder_thickness * 2}+{(screen_width // 2) - (board_size // 2)}+{(screen_height // 2) - ((board_size + 120) // 2)}")
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
         self.board = Board(
             self.color,
             tile_size,
-            boarder_thickness,
+            self.boarder_thickness,
             self,
-            width=board_size + 2 * boarder_thickness,
-            height=board_size + 2 * boarder_thickness,
+            width=board_size + 2 * self.boarder_thickness,
+            height=board_size + 2 * self.boarder_thickness,
             highlightthickness=0,
             bd=0,
             bg='#4f301f'
@@ -349,7 +351,7 @@ class App(Tk):
         self.update()
 
     def on_board_resize(self, event):
-        new_tile = min(event.width, event.height) / 8
+        new_tile = min(event.width - self.boarder_thickness * 2, event.height - self.boarder_thickness * 2) / 8
         if abs(new_tile - self.board.tile_size) < 1:
             return
         self.board.resize(new_tile)
