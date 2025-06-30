@@ -102,6 +102,7 @@ class Board(Canvas):
 
         self.create_mappings()
         self.tiles = self.create_board(tile_size)
+        self.draw_labels()
         self.bind('<Button-1>', self.click)
 
         self.last_fen = None
@@ -225,6 +226,26 @@ class Board(Canvas):
                 k += 1
         return board_tiles
 
+    def draw_labels(self):
+        """Draw file (a-h) and rank (1-8) labels around the board."""
+        board_size = self.tile_size * 8
+        files = 'abcdefgh' if self.player == WHITE else 'hgfedcba'
+        ranks = '12345678' if self.player == WHITE else '87654321'
+
+        label_font = ('Arial', int(self.tile_size * 0.3))
+
+        # file labels along the bottom
+        for i, f in enumerate(files):
+            x = (i + 0.5) * self.tile_size
+            y = board_size - self.tile_size * 0.1
+            self.create_text(x, y, text=f, font=label_font)
+
+        # rank labels along the left side
+        for i, r in enumerate(ranks):
+            x = self.tile_size * 0.1
+            y = board_size - (i + 0.5) * self.tile_size
+            self.create_text(x, y, text=r, font=label_font)
+
     def render_fen(self, fen_string):
         if fen_string.string == self.last_fen:
             return
@@ -262,7 +283,8 @@ class App(Tk):
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
-        self.frame = Frame(self, bg='#b58863', bd=50)
+        # Darker wooden border around the board
+        self.frame = Frame(self, bg='#8b4513', bd=70)
         self.frame.pack()
 
         self.board = Board(
