@@ -2,9 +2,6 @@ import socket
 import time
 from Client.Board import App
 from Client.FEN import FEN_String
-
-IP = '127.0.0.1'
-PORT = 6000
 BUFFER_SIZE = 1000
 
 MOVE = 0
@@ -15,9 +12,9 @@ GET_COLOR = 4
 RESET = 5
 
 class Client():
-	def __init__(self):
+	def __init__(self, ip, port):
 		self.server = socket.socket()
-		self.server.connect((IP, PORT))
+		self.server.connect((ip, port))
 		self.ready_quit = False
 		self.viewer = False
 

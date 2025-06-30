@@ -2,23 +2,6 @@ from tkinter import *
 from Client.FEN import *
 from PIL import Image, ImageTk
 import os
-import chess
-import chess.engine
-
-
-def best_move_for_white(fen, stockfish_path="/opt/homebrew/bin/stockfish", elo=1320):
-    board = chess.Board(fen)
-    engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
-    
-    # Set engine to desired Elo rating
-    engine.configure({"UCI_LimitStrength": True, "UCI_Elo": elo})
-    
-    # You can still set a move-time limit or depth for quicker response
-    result = engine.play(board, chess.engine.Limit(time=0.1))
-    
-    engine.quit()
-    
-    return result.move.from_square, result.move.to_square
 
 BLACK = 1
 WHITE = 0
@@ -152,15 +135,6 @@ class Board(Canvas):
                 board_idx = r * 8 + (7 - c)
             self.fen_to_board.append(board_idx)
 
-    def highlight_best_move(self, fen):
-        from_idx, to_idx = best_move_for_white(fen)
-        if (from_idx == None): return;
-        # print(63 -from_idx,63- to_idx);
-
-        self.unhighlight(HINT)
-        self.highlight(self.fen_to_board[from_idx], HINT)
-        self.highlight(self.fen_to_board[to_idx], HINT)
-
     def unhighlight(self, type):
         for index in self.moves[type]:
             keep = False
@@ -264,13 +238,13 @@ class Board(Canvas):
         for i, f in enumerate(files):
             x = (i + 0.5) * self.tile_size + self.boarder_thickness
             y = board_size - self.tile_size * -margin + self.boarder_thickness
-            self.create_text(x, y, text=f, font=label_font, tags='label')
+            self.create_text(x, y, text=f, font=label_font, tags='label', fill='#ffffff')
 
         # rank labels along the left side
         for i, r in enumerate(ranks):
             x = self.tile_size * -margin + self.boarder_thickness
             y = board_size - (i + 0.5) * self.tile_size + self.boarder_thickness
-            self.create_text(x, y, text=r, font=label_font, tags='label')
+            self.create_text(x, y, text=r, font=label_font, tags='label', fill='#ffffff')
 
 
     def render_fen(self, fen_string):
