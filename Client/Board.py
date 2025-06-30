@@ -287,18 +287,21 @@ class App(Tk):
         self.title("Chess Engine")
         self.attributes('-topmost', True)
 
+        self.board_container = Frame(self, bg='#4f301f')
+        self.board_container.pack(expand=True, fill=BOTH)
+
         self.board = Board(
             self.color,
             tile_size,
             self.boarder_thickness,
-            self,
+            self.board_container,
             width=board_size + 2 * self.boarder_thickness,
             height=board_size + 2 * self.boarder_thickness,
             highlightthickness=0,
             bd=0,
             bg='#4f301f'
         )
-        self.board.pack(expand=True, fill=BOTH)
+        self.board.place(relx=0.5, rely=0.5, anchor=CENTER)
 
         # color_text = "White" if self.color == WHITE else "Black"
         # self.color_label = Label(self, text=f"You are {color_text}", font=('Arial', 12))
@@ -313,7 +316,7 @@ class App(Tk):
         self.reset_handler = reset_handler
 
         self.bind('q', self.leave)
-        self.board.bind('<Configure>', self.on_board_resize)
+        self.board_container.bind('<Configure>', self.on_board_resize)
 
     def leave(self, e):
         print("QUITTING")
@@ -329,6 +332,7 @@ class App(Tk):
         if abs(new_tile - self.board.tile_size) < 1:
             return
         self.board.resize(new_tile)
+        self.board.place_configure(relx=0.5, rely=0.5, anchor=CENTER)
 
     def reset(self):
         print('reseting')
