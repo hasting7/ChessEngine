@@ -1,9 +1,9 @@
 #include "includes/chess.h"
+#include <string.h>
 
 int serverSocket;
 pthread_mutex_t board_lock;
 Board *board;
-Zobrist zobrist;
 
 int white_assigned = 0;
 int black_assigned = 0;
@@ -23,7 +23,8 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
     char command_char = socket_buff[0];
     if (!((command_char >= '0') && (command_char <= '9'))) {
         printf("%c Received, not a valid command\n", command_char);
-        write(fd, "ERROR", 5);
+        ssize_t w = write(fd, "ERROR", 5);
+        (void)w;
         return;
     }
 
@@ -31,12 +32,14 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
 
     if (cmd == VIEW) {
         char *fen = board_to_fen(args.chess_board);
-        write(fd, fen, strlen(fen));
+        ssize_t w = write(fd, fen, strlen(fen));
+        (void)w;
         free(fen);
         return;
     } else if (cmd == GENERATE) {
         if (length < 4) {
-            write(fd, "ERROR", 5);
+            ssize_t w = write(fd, "ERROR", 5);
+            (void)w;
             return;
         }
         // printf("buffer: %s\n",socket_buff);
@@ -44,12 +47,14 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
         // printf("INDEX: %d\n",index);
         char *moves = generate_moves_as_string(args.chess_board, index);
         // printf("moves: %s\n",moves);
-        write(fd, moves, strlen(moves));
+        ssize_t w = write(fd, moves, strlen(moves));
+        (void)w;
         free(moves);
         return;
     } else if (cmd == MOVE) {
         if (length < 7) {
-            write(fd, "ERROR", 5);
+            ssize_t w = write(fd, "ERROR", 5);
+            (void)w;
             return;
         }
         // printf("buffer: %s\n",socket_buff);
@@ -59,17 +64,20 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
         Move move = encode_move(from_index, to_index, 0);
         move_piece(args.chess_board, move);
         char *fen = board_to_fen(args.chess_board);
-        write(fd, fen, strlen(fen));
+        ssize_t w = write(fd, fen, strlen(fen));
+        (void)w;
         free(fen);
         return;
     } else if (cmd == UNDO) {
-        write(fd, "UNDOING", 7);
+        ssize_t w = write(fd, "UNDOING", 7);
+        (void)w;
         return;
     } else if (cmd == GET_COLOR) {
         char buffer[2];
         buffer[0] = args.color + '0';
         buffer[1] = '\0';
-        write(fd, buffer, 1);
+        ssize_t w = write(fd, buffer, 1);
+        (void)w;
         return;
     } else if (cmd == RESTART) {
         reset_board(&board);
@@ -77,7 +85,8 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
         write(fd, "RESET", 5);
         return;
     }
-    write(fd, "ERROR", 5);
+    ssize_t w = write(fd, "ERROR", 5);
+    (void)w;
     return;
 }
 
@@ -135,15 +144,18 @@ void* viewer_handler(void *void_args) {
 
         if (cmd == VIEW) {
             char *fen = board_to_fen(args.chess_board);
-            write(client_fd, fen, strlen(fen));
+            ssize_t w = write(client_fd, fen, strlen(fen));
+            (void)w;
             free(fen);
         } else if (cmd == GET_COLOR) {
         	char color_buff[2];
 	        color_buff[0] = '3';
 	        color_buff[1] = '\0';
-	        write(client_fd, color_buff, 1);
+                ssize_t w = write(client_fd, color_buff, 1);
+                (void)w;
         } else {
-        	write(client_fd, "ERROR", 5);
+                ssize_t w = write(client_fd, "ERROR", 5);
+                (void)w;
         }
     }
     printf("Closing viewer socket %d\n", client_fd);
@@ -185,7 +197,7 @@ int main(int argc, char **argv) {
     pthread_mutex_init(&board_lock, NULL);
     board = create_board();
     init_zobrist_hash(&zobrist, board);
-    printf("board_hash: %llu\n", board->z_hash);
+    printf("board_hash: %llu\n", (unsigned long long)board->z_hash);
     printf("PST\n\tmidgame: %d\n\tendgame: %d\n",board->pst_scores[MIDGAME],board->pst_scores[ENDGAME]);
 
     // Setup signal handlers.

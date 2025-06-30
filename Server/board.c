@@ -1,4 +1,5 @@
 #include "includes/chess.h"
+#include <string.h>
 
 Move encode_move(int from_index, int to_index, int flags) {
 	// use flags for castling or promotion or en passant
