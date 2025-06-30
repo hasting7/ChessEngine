@@ -141,6 +141,13 @@ int move_piece(Board *state, Move move) {
 	return 0;
 }
 
+void reset_board(Board **state) {
+	if (*state) {
+		free(*state);
+	}
+	*state = create_board();
+}
+
 
 // create board
 Board * create_board() {

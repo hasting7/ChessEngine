@@ -134,7 +134,7 @@ class Board(Canvas):
 		self.tiles[tile_index].highlight(COLORS[type]);
 		return True
 
-		# MAKE THIS RETURN TRUE ON SUCESS	
+		# MAKE THIS RETURN TRUE ON SUCESS   
 
 
 	def click(self, event):
@@ -221,7 +221,7 @@ class Board(Canvas):
 
 
 class App(Tk):
-	def __init__(self, size, color, highlight_handler, move_handler, on_quit):
+	def __init__(self, size, color, highlight_handler, move_handler, on_quit, reset_handler):
 		super().__init__()
 		screen_width = self.winfo_screenwidth()
 		screen_height = self.winfo_screenheight()
@@ -229,16 +229,20 @@ class App(Tk):
 		self.color = color
 
 		self.resizable(0, 0)
-		self.geometry(f"{size[0]}x{size[1]}+{(screen_width // 2) - (size[0] // 2)}+{(screen_height // 2) - (size[1] // 2)}")
+		self.geometry(f"{size[0]}x{size[1]+100}+{(screen_width // 2) - (size[0] // 2)}+{(screen_height // 2) - (size[1] // 2)}")
 		self.title("Chess Engine")
 		self.attributes('-topmost', True)
 
 		self.board = Board(self.color, size[0] / 8, self, width=size[0], height=size[1], highlightthickness=0, bd=0, bg='white')
 		self.board.pack()
 
+		self.reset_btn = Button(self, text="Reset Board", command=self.reset)
+		self.reset_btn.pack(side=BOTTOM);
+
 		self.board.handle_highlight = highlight_handler
 		self.board.handle_move = move_handler
 		self.on_quit = on_quit
+		self.reset_handler = reset_handler
 
 		self.bind('q', self.leave)
 
@@ -251,6 +255,10 @@ class App(Tk):
 		self.update_idletasks()
 		self.update()
 
+	def reset(self):
+		print('reseting')
+		self.reset_handler()
+
 
 if __name__ == '__main__':
 	def dummy_highlight(tile):
@@ -259,6 +267,6 @@ if __name__ == '__main__':
 	def dummy_move(frm, to):
 		return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-	app = App((500, 500), WHITE, dummy_highlight, dummy_move, lambda: None)
+	app = App((900, 900), WHITE, dummy_highlight, dummy_move, lambda: None)
 	app.board.render_fen(FEN_String())
 	app.mainloop()

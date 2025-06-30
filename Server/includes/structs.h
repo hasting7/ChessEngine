@@ -28,6 +28,7 @@ typedef enum command_enum {
     UNDO,
     GENERATE,
     GET_COLOR,
+    RESTART
 } Command;
 
 typedef enum flag_name_enum {
