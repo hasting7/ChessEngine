@@ -249,8 +249,8 @@ Board * create_board() {
 	board->all_pieces[WHITE] = WHITE_PAWN_START | WHITE_ROOK_START | WHITE_KNIGHT_START | WHITE_BISHOP_START | WHITE_KING_START | WHITE_QUEEN_START;
 	board->all_pieces[BLACK] = BLACK_PAWN_START | BLACK_ROOK_START | BLACK_KNIGHT_START | BLACK_BISHOP_START | BLACK_KING_START | BLACK_QUEEN_START;
 
-	board->attackable[WHITE] = 0LLU;
-	board->attackable[BLACK] = 0LLU;
+        board->attackable[WHITE] = generate_attackable_squares(board, WHITE);
+        board->attackable[BLACK] = generate_attackable_squares(board, BLACK);
 	// initalize hash
 	board->active_player = WHITE;
 	board->move_count = 2;
@@ -409,16 +409,38 @@ Bitboard generate_king_moves(Board *state, Bitboard king, Color color) {
 }
 
 Bitboard generate_attackable_squares(Board *state, Color color) {
-	Bitboard total_moves = 0LLU;
-	Bitboard mask = 1;
-	int from_index = 0; // how can I add more value to this?
-	for (; from_index < 64; from_index++) {
-		if (mask & state->all_pieces[color]) {
-			total_moves |= generate_moves(state, from_index, FALSE);
-		}
-		mask = mask << 1;
-	}
-	return total_moves;
+        Bitboard total_moves = 0ULL;
+
+        // pawns and knights can be calculated on the whole bitboard at once
+        total_moves |= generate_pawn_moves(state, state->pieces[color][PAWN], color);
+        total_moves |= generate_knight_moves(state, state->pieces[color][KNIGHT], color);
+
+        // king (only one per colour)
+        total_moves |= generate_king_moves(state, state->pieces[color][KING], color);
+
+        // sliding pieces need to be done piece by piece
+        Bitboard pieces = state->pieces[color][ROOK];
+        while (pieces) {
+                Bitboard rook = pieces & -pieces; // isolate least significant bit
+                total_moves |= generate_rook_moves(state, rook, color);
+                pieces ^= rook;
+        }
+
+        pieces = state->pieces[color][BISHOP];
+        while (pieces) {
+                Bitboard bishop = pieces & -pieces;
+                total_moves |= generate_bishop_moves(state, bishop, color);
+                pieces ^= bishop;
+        }
+
+        pieces = state->pieces[color][QUEEN];
+        while (pieces) {
+                Bitboard queen = pieces & -pieces;
+                total_moves |= generate_queen_moves(state, queen, color);
+                pieces ^= queen;
+        }
+
+        return total_moves;
 }
 
 
