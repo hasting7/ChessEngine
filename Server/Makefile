@@ -1,11 +1,11 @@
 CC = cc
 
 # Compiler and linker flags
-CFLAGS = -Wall -Werror -I./includes -O3 -march=native -flto -fomit-frame-pointer -DNDEBUG
-LDFLAGS = -flto -O3 -march=native
+CFLAGS = -Wall -Werror -I./includes -O3 -march=native -flto -fomit-frame-pointer -DNDEBUG -pthread
+LDFLAGS = -flto -O3 -march=native -pthread
 
 # Source files
-SRCS = server.c board.c hash.c zobrist_hash.c chess_agent.c piece_evaluator.c
+SRCS = server.c board.c hash.c zobrist_hash.c chess_agent.c piece_evaluator.c thread_pool.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)

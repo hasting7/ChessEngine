@@ -1,4 +1,5 @@
 #include "includes/chess.h"
+#include "includes/thread_pool.h"
 
 
 // before magic bitboards
@@ -36,47 +37,57 @@ int capture_value[6] = {
     0     // KING
 };
 
+#define POOL_THREADS 4
+static ThreadPool pool;
+static int pool_initialized = 0;
+
+struct search_task {
+    Board board;
+    Bitboard tile;
+    struct alphabeta_response result;
+};
+
+static void search_task_run(void *arg) {
+    struct search_task *task = (struct search_task *)arg;
+    alphabeta(&task->board, LOOK_AHEAD, INT_MIN, INT_MAX, FALSE, &task->result, task->tile);
+}
+
 
 Move select_move(Board *state) {
-	struct timeval start, end;
+        struct timeval start, end;
 
-	gettimeofday(&start, NULL);
-
-	int pipe_fd[2];
-	int children_procs = 0;
-        int pipe_res = pipe(pipe_fd);
-        (void)pipe_res;
-
-	pid_t pid;
-
-	Bitboard from_mask = 1ULL;
-	Bitboard pieces = state->all_pieces[state->active_player];
-	for (int i = 0; i < 64; i++) {
-		if (pieces & from_mask) {
-			children_procs++;
-			pid = fork();
-			if (pid == 0) {
-				close(pipe_fd[0]);
-				process_task(*state, pipe_fd[1], from_mask);
-			}
-		}
-		from_mask <<= 1;
-	}
-
-	struct alphabeta_response result;
-	struct alphabeta_response best = {.score = INT_MAX, .move = NO_MOVE};
-
-
-	close(pipe_fd[1]);  // Close write end of the pipe
-    for (int i = 0; i < children_procs; i++) {
-        ssize_t r = read(pipe_fd[0], &result, sizeof(result));  // Read result from the pipe
-        (void)r;
-        // printf("Received result from child %d: %f %d\n", i, result.score, result.move);
-
-        if (result.score < best.score) {
-        	best = result;
+        if (!pool_initialized) {
+                pool_init(&pool, POOL_THREADS);
+                pool_initialized = 1;
         }
-    }
+
+        gettimeofday(&start, NULL);
+
+        PoolTask tasks[64];
+        struct search_task stasks[64];
+        int task_count = 0;
+
+        Bitboard from_mask = 1ULL;
+        Bitboard pieces = state->all_pieces[state->active_player];
+        for (int i = 0; i < 64; i++) {
+                if (pieces & from_mask) {
+                        stasks[task_count].board = *state;
+                        stasks[task_count].tile = from_mask;
+                        tasks[task_count].func = search_task_run;
+                        tasks[task_count].arg = &stasks[task_count];
+                        pool_add_task(&pool, &tasks[task_count]);
+                        task_count++;
+                }
+                from_mask <<= 1;
+        }
+
+        struct alphabeta_response best = {.score = INT_MAX, .move = NO_MOVE};
+        for (int i = 0; i < task_count; i++) {
+                pool_wait_task(&tasks[i]);
+                if (stasks[i].result.score < best.score) {
+                        best = stasks[i].result;
+                }
+        }
 
 	// // get the move ADD BACK IN ZOBRIST HASH
 	// // struct board_data *data = hash_find(zobrist.hashtable, state->z_hash);
@@ -139,9 +150,9 @@ int sort_key(const void *a, const void *b) {
 }
 
 void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard only_check_mask) {
-	// make sure moves less thna MAX_MOVES
-	// Move *move_head = move_list;
-	*move_count = 0;
+        // make sure moves less than MAX_MOVES
+        Move *move_head = move_list;
+        *move_count = 0;
 
 	Color color = state->active_player;
 
@@ -193,24 +204,11 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 		}
 		tile_mask <<= 1;
 	}
-	if (*move_count > 1) {
-		qsort(&move_list, *move_count, sizeof(Move), sort_key);
-	}
+        if (*move_count > 1) {
+                qsort(move_head, *move_count, sizeof(Move), sort_key);
+        }
 }
 
-void process_task(Board state, int fd, Bitboard inital_tile) {
-	// extablish IPC
-	// start alpha beta with precondition
-	// pipe best move back
-
-	struct alphabeta_response response;
-	alphabeta(&state, LOOK_AHEAD, INT_MIN, INT_MAX, FALSE, &response, inital_tile);
-
-
-        ssize_t w = write(fd, &response, sizeof(response));
-        (void)w;
-	exit(0);
-}
 
 void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player, struct alphabeta_response * best_info, Bitboard only_check_mask) {
         Hash board_hash = state->z_hash;
