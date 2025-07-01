@@ -42,9 +42,11 @@ extern Bitboard bishop_masks[64];
 
 Hashtable *create_hashtable(int);
 void delete_hashtable(Hashtable *);
-void hash_insert(Hashtable *, Hash, struct board_data);
+void hash_insert(Hashtable *, Hash, void *);
 int hash_remove(Hashtable *, Hash);
-struct board_data * hash_find(Hashtable *, Hash);
+void *hash_find(Hashtable *, Hash);
+void hash_clear(Hashtable *table);
+Hash rnd64();
 
 // SERVER PROTOTYPES
 
@@ -57,7 +59,7 @@ extern pthread_t client_threads[2];
 
 // ZOBRIST PROTOTYPES
 
-uint64_t rnd64();
+
 void init_zobrist_hash(Zobrist *, Board *);
 Hash update_zobrist_move( int, int, Piece, Color); 
 Hash get_board_hash(Board *);
@@ -88,6 +90,16 @@ extern const PST king_pst;
 extern const int piece_values[2][6];
 extern const PST* piece_psts[6];
 extern const int MAX_PHASE;
+
+// MAGIC BITBOARD
+
+void create_magic_file(const char *filename, int is_rook);
+void load_magic_file(const char *filename, MagicData *table);
+void init_masks();
+Bitboard rmask(int);
+Bitboard bmask(int);
+Bitboard ratt(int, Bitboard);
+Bitboard batt(int, Bitboard);
 
 
 #endif

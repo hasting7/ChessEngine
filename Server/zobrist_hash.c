@@ -1,31 +1,7 @@
 #include "includes/chess.h"
 
-int seed = 0;
-
 Zobrist zobrist;
 
-int get_seed() {
-    if (seed == 0) {
-        seed = (int) time(NULL);
-    }
-   	seed++;
-    return seed;
-}
-
-uint64_t rnd64() {
-
-    const uint64_t z = 0x9FB21C651E98DF25;
-
-    uint64_t n = get_seed();
-
-    n ^= ((n << 49) | (n >> 15)) ^ ((n << 24) | (n >> 40));
-    n *= z;
-    n ^= n >> 35;
-    n *= z;
-    n ^= n >> 28;
-
-    return n;
-}
 
 void init_zobrist_hash(Zobrist *zobrist, Board *state) {
 	for (int color = 0; color < NUM_COLORS; color++) {

@@ -5,7 +5,7 @@ CFLAGS = -Wall -Werror -I./includes -O3 -march=native -flto -fomit-frame-pointer
 LDFLAGS = -flto -O3 -march=native -pthread
 
 # Source files
-SRCS = server.c board.c hash.c zobrist_hash.c chess_agent.c piece_evaluator.c thread_pool.c
+SRCS = server.c board.c hash.c zobrist_hash.c chess_agent.c piece_evaluator.c thread_pool.c magic_bitboard.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)

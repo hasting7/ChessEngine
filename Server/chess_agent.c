@@ -10,7 +10,7 @@
 
 // after magic bitboard
 
-#define LOOK_AHEAD 6
+#define LOOK_AHEAD 7
 
 
 Bitboard CHECK_ALL = 0xFFFFFFFFFFFFFFFF;
@@ -178,7 +178,7 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 					if (valid_moves & move_mask && *move_count < MAX_MOVES) {
 						// HERE WE HAVE VALID FROM AND TO INDEXS
 						mflag = 0x0;
-						// flags on range from 0-15 with 15 best move
+					        // flags on range from 0-15 with 15 best move
 						if (state->all_pieces[!color] & move_mask) { // capture
 							Piece victim = piece_on_tile(state,!color,move_mask);
 							Piece attacker = piece_on_tile(state, color, tile_mask);
@@ -213,8 +213,8 @@ void generate_all_moves(Board *state, Move *move_list, int *move_count, Bitboard
 void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player, struct alphabeta_response * best_info, Bitboard only_check_mask) {
         Hash board_hash = state->z_hash;
         int best_score;
-        int alpha_orig = alpha;
-        int beta_orig = beta;
+        // int alpha_orig = alpha;
+        // int beta_orig = beta;
 
         struct board_data *entry = hash_find(zobrist.hashtable, board_hash);
         if (entry && entry->depth >= depth) {
@@ -241,8 +241,8 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
                 best_info->score = eval_score;
                 best_info->move = 0;
 
-                struct board_data data = { .eval_score = eval_score, .depth = depth, .flags = EXACT, .best_move = 0 };
-                hash_insert(zobrist.hashtable, board_hash, data);
+                // struct board_data data = { .eval_score = eval_score, .depth = depth, .flags = EXACT, .best_move = 0 };
+                // hash_insert(zobrist.hashtable, board_hash, data);
                 return;
         }
 
@@ -311,15 +311,15 @@ void alphabeta(Board *state, int depth, int alpha, int beta, int maximize_player
         best_info->move = best_move_local;
         best_info->score = best_score;
 
-        HashFlag flag;
-        if (best_score <= alpha_orig) {
-                flag = UPPER;
-        } else if (best_score >= beta_orig) {
-                flag = LOWER;
-        } else {
-                flag = EXACT;
-        }
+        // HashFlag flag;
+        // if (best_score <= alpha_orig) {
+        //         flag = UPPER;
+        // } else if (best_score >= beta_orig) {
+        //         flag = LOWER;
+        // } else {
+        //         flag = EXACT;
+        // }
 
-        struct board_data new_entry = { .eval_score = best_score, .depth = depth, .flags = flag, .best_move = best_move_local };
-        hash_insert(zobrist.hashtable, board_hash, new_entry);
+        // struct board_data new_entry = { .eval_score = best_score, .depth = depth, .flags = flag, .best_move = best_move_local };
+        // hash_insert(zobrist.hashtable, board_hash, new_entry);
 }

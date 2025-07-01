@@ -26,5 +26,6 @@
 #include "hash.h"
 #include "server.h"
 #include "zobrist_hash.h"
+#include "magic_bitboard.h"
 
 #endif // ALL_INCLUDES_H

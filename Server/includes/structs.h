@@ -83,7 +83,7 @@ struct board_data {
 
 typedef struct hash_entry {
     Hash hash;
-    struct board_data data;
+    void *data;
     struct hash_entry *next;
 } HashEntry;
 

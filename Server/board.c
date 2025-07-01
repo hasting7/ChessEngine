@@ -6,63 +6,11 @@ MagicData bishop_magic[64];
 Bitboard rook_masks[64];
 Bitboard bishop_masks[64];
 
-int magic_index(Bitboard blockers, Bitboard mask, Bitboard magic, int bits) {
-	Bitboard relevant = blockers & mask;
-	return (int)((relevant * magic) >> (64 - bits));
-}
-
-Bitboard rmask(int sq) {
-  Bitboard result = 0ULL;
-  int rk = sq/8, fl = sq%8, r, f;
-  for(r = rk+1; r <= 6; r++) result |= (1ULL << (fl + r*8));
-  for(r = rk-1; r >= 1; r--) result |= (1ULL << (fl + r*8));
-  for(f = fl+1; f <= 6; f++) result |= (1ULL << (f + rk*8));
-  for(f = fl-1; f >= 1; f--) result |= (1ULL << (f + rk*8));
-  return result;
-}
-
-Bitboard bmask(int sq) {
-  Bitboard result = 0ULL;
-  int rk = sq/8, fl = sq%8, r, f;
-  for(r=rk+1, f=fl+1; r<=6 && f<=6; r++, f++) result |= (1ULL << (f + r*8));
-  for(r=rk+1, f=fl-1; r<=6 && f>=1; r++, f--) result |= (1ULL << (f + r*8));
-  for(r=rk-1, f=fl+1; r>=1 && f<=6; r--, f++) result |= (1ULL << (f + r*8));
-  for(r=rk-1, f=fl-1; r>=1 && f>=1; r--, f--) result |= (1ULL << (f + r*8));
-  return result;
-}
-
 void init_masks() {
     for (int i = 0; i < 64; i++) {
         rook_masks[i] = rmask(i);
         bishop_masks[i] = bmask(i);
     }
-}
-
-void load_magic_file(const char *filename, MagicData *table) {
-    FILE *fp = fopen(filename, "rb");
-    if (!fp) {
-        perror("Failed to open magic file");
-        exit(1);
-    }
-
-    for (int i = 0; i < 64; i++) {
-        size_t r1 = fread(&table[i].magic_bitboard, sizeof(Bitboard), 1, fp);
-        (void)r1;
-        size_t r2 = fread(&table[i].bits_used, sizeof(int), 1, fp);
-        (void)r2;
-
-        int count = 1 << table[i].bits_used;
-        table[i].array_of_moves = malloc(sizeof(Bitboard) * count);
-        if (!table[i].array_of_moves) {
-            fprintf(stderr, "Failed to allocate array for square %d\n", i);
-            exit(1);
-        }
-
-        size_t r3 = fread(table[i].array_of_moves, sizeof(Bitboard), count, fp);
-        (void)r3;
-    }
-
-    fclose(fp);
 }
 
 Move encode_move(int from_index, int to_index, int flags) {
@@ -249,8 +197,7 @@ Board * create_board() {
 	board->all_pieces[WHITE] = WHITE_PAWN_START | WHITE_ROOK_START | WHITE_KNIGHT_START | WHITE_BISHOP_START | WHITE_KING_START | WHITE_QUEEN_START;
 	board->all_pieces[BLACK] = BLACK_PAWN_START | BLACK_ROOK_START | BLACK_KNIGHT_START | BLACK_BISHOP_START | BLACK_KING_START | BLACK_QUEEN_START;
 
-        board->attackable[WHITE] = generate_attackable_squares(board, WHITE);
-        board->attackable[BLACK] = generate_attackable_squares(board, BLACK);
+    
 	// initalize hash
 	board->active_player = WHITE;
 	board->move_count = 2;
@@ -259,6 +206,9 @@ Board * create_board() {
 	board->pst_scores[MIDGAME] = 0;
 	board->pst_scores[ENDGAME] = 0;
 	initialize_pst(board);
+
+	board->attackable[WHITE] = generate_attackable_squares(board, WHITE);
+    board->attackable[BLACK] = generate_attackable_squares(board, BLACK);
 
 	return board;
 };
@@ -408,39 +358,41 @@ Bitboard generate_king_moves(Board *state, Bitboard king, Color color) {
    return possible;
 }
 
+// TODO THIS FUNCTION IS ALL FUCKED UP THIS IS WHERE THE SEG FUALT IS COMING FROMS
 Bitboard generate_attackable_squares(Board *state, Color color) {
-        Bitboard total_moves = 0ULL;
+    Bitboard total_moves = 0ULL;
 
-        // pawns and knights can be calculated on the whole bitboard at once
-        total_moves |= generate_pawn_moves(state, state->pieces[color][PAWN], color);
-        total_moves |= generate_knight_moves(state, state->pieces[color][KNIGHT], color);
+    // pawns and knights can be calculated on the whole bitboard at once
+    total_moves |= generate_pawn_moves(state, state->pieces[color][PAWN], color);
+    total_moves |= generate_knight_moves(state, state->pieces[color][KNIGHT], color);
 
-        // king (only one per colour)
-        total_moves |= generate_king_moves(state, state->pieces[color][KING], color);
+    // king (only one per colour)
+    total_moves |= generate_king_moves(state, state->pieces[color][KING], color);
 
-        // sliding pieces need to be done piece by piece
-        Bitboard pieces = state->pieces[color][ROOK];
-        while (pieces) {
-                Bitboard rook = pieces & -pieces; // isolate least significant bit
-                total_moves |= generate_rook_moves(state, rook, color);
-                pieces ^= rook;
-        }
+    // sliding pieces need to be done piece by piece
+    Bitboard pieces = state->pieces[color][ROOK];
 
-        pieces = state->pieces[color][BISHOP];
-        while (pieces) {
-                Bitboard bishop = pieces & -pieces;
-                total_moves |= generate_bishop_moves(state, bishop, color);
-                pieces ^= bishop;
-        }
+    while (pieces) {
+            Bitboard rook = pieces & -pieces; // isolate least significant bit
+            total_moves |= generate_rook_moves(state, rook, color);
+            pieces ^= rook;
+    }
 
-        pieces = state->pieces[color][QUEEN];
-        while (pieces) {
-                Bitboard queen = pieces & -pieces;
-                total_moves |= generate_queen_moves(state, queen, color);
-                pieces ^= queen;
-        }
+    pieces = state->pieces[color][BISHOP];
+    while (pieces) {
+            Bitboard bishop = pieces & -pieces;
+            total_moves |= generate_bishop_moves(state, bishop, color);
+            pieces ^= bishop;
+    }
 
-        return total_moves;
+    pieces = state->pieces[color][QUEEN];
+    while (pieces) {
+            Bitboard queen = pieces & -pieces;
+            total_moves |= generate_queen_moves(state, queen, color);
+            pieces ^= queen;
+    }
+
+    return total_moves;
 }
 
 
