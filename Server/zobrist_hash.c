@@ -88,6 +88,23 @@ Hash update_pawn_promote(int square, Piece to_piece, Color color) {
     return hash;
 }
 
+struct board_data *tt_lookup(Hash hash) {
+    return (struct board_data *)hash_find(zobrist.hashtable, hash);
+}
+
+void tt_store(Hash hash, int eval_score, int depth, HashFlag flag, Move best_move) {
+    struct board_data *entry = malloc(sizeof(struct board_data));
+    entry->eval_score = eval_score;
+    entry->depth = depth;
+    entry->flags = flag;
+    entry->best_move = best_move;
+    hash_insert(zobrist.hashtable, hash, entry);
+}
+
+void tt_clear() {
+    hash_clear(zobrist.hashtable);
+}
+
 // HashEntry *check_zobrist(Zobrist *zobrist, Hash hash) {
 // 	return hash_find(zobrist->hashtable, hash);
 // }

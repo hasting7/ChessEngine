@@ -66,6 +66,10 @@ Hash get_board_hash(Board *);
 Hash update_zobrist_capture(int, Piece, Color);
 Hash update_zobrist_turn();
 Hash update_pawn_promote(int, Piece, Color);
+
+struct board_data *tt_lookup(Hash);
+void tt_store(Hash, int, int, HashFlag, Move);
+void tt_clear();
 // AI PROTOTYPES
 
 Move select_move(Board *);
