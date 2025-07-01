@@ -126,9 +126,9 @@ int evaluate_board(Board *state) {
 
 	score += evaluate_pieces(state);
 
-	// make use of number of attack locations
-	Bitboard attack_moves_white = generate_attackable_squares(state, WHITE);
-	Bitboard attack_moves_black = generate_attackable_squares(state, BLACK);
+        // make use of number of attack locations
+        Bitboard attack_moves_white = state->attackable[WHITE];
+        Bitboard attack_moves_black = state->attackable[BLACK];
 
 	attack_score = __builtin_popcountll(attack_moves_white) - __builtin_popcountll(attack_moves_black);
 
