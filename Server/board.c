@@ -1,6 +1,67 @@
 #include "includes/chess.h"
 #include <string.h>
 
+MagicData rook_magic[64];
+MagicData bishop_magic[64];
+Bitboard rook_masks[64];
+Bitboard bishop_masks[64];
+
+int magic_index(Bitboard blockers, Bitboard mask, Bitboard magic, int bits) {
+	Bitboard relevant = blockers & mask;
+	return (int)((relevant * magic) >> (64 - bits));
+}
+
+Bitboard rmask(int sq) {
+  Bitboard result = 0ULL;
+  int rk = sq/8, fl = sq%8, r, f;
+  for(r = rk+1; r <= 6; r++) result |= (1ULL << (fl + r*8));
+  for(r = rk-1; r >= 1; r--) result |= (1ULL << (fl + r*8));
+  for(f = fl+1; f <= 6; f++) result |= (1ULL << (f + rk*8));
+  for(f = fl-1; f >= 1; f--) result |= (1ULL << (f + rk*8));
+  return result;
+}
+
+Bitboard bmask(int sq) {
+  Bitboard result = 0ULL;
+  int rk = sq/8, fl = sq%8, r, f;
+  for(r=rk+1, f=fl+1; r<=6 && f<=6; r++, f++) result |= (1ULL << (f + r*8));
+  for(r=rk+1, f=fl-1; r<=6 && f>=1; r++, f--) result |= (1ULL << (f + r*8));
+  for(r=rk-1, f=fl+1; r>=1 && f<=6; r--, f++) result |= (1ULL << (f + r*8));
+  for(r=rk-1, f=fl-1; r>=1 && f>=1; r--, f--) result |= (1ULL << (f + r*8));
+  return result;
+}
+
+void init_masks() {
+    for (int i = 0; i < 64; i++) {
+        rook_masks[i] = rmask(i);
+        bishop_masks[i] = bmask(i);
+    }
+}
+
+void load_magic_file(const char *filename, MagicData *table) {
+    FILE *fp = fopen(filename, "rb");
+    if (!fp) {
+        perror("Failed to open magic file");
+        exit(1);
+    }
+
+    for (int i = 0; i < 64; i++) {
+        fread(&table[i].magic_bitboard, sizeof(Bitboard), 1, fp);
+        fread(&table[i].bits_used, sizeof(int), 1, fp);
+
+        int count = 1 << table[i].bits_used;
+        table[i].array_of_moves = malloc(sizeof(Bitboard) * count);
+        if (!table[i].array_of_moves) {
+            fprintf(stderr, "Failed to allocate array for square %d\n", i);
+            exit(1);
+        }
+
+        fread(table[i].array_of_moves, sizeof(Bitboard), count, fp);
+    }
+
+    fclose(fp);
+}
+
 Move encode_move(int from_index, int to_index, int flags) {
 	// use flags for castling or promotion or en passant
 	return (from_index & 0x3F) | ((to_index & 0x3F) << 6) | ((flags & 0xF) << 12);
@@ -304,101 +365,23 @@ Bitboard generate_pawn_moves(Board *state, Bitboard pawn, Color color) {
 }
 
 Bitboard generate_rook_moves(Board *state, Bitboard rook, Color color) {
-    uint64_t occupied = state->all_pieces[WHITE] | state->all_pieces[BLACK];
-    uint64_t enemy_pieces = state->all_pieces[!color];
-    uint64_t possible = 0;
+	int square = __builtin_ctzll(rook);
+	Bitboard blockers = state->all_pieces[WHITE] | state->all_pieces[BLACK];
+	int index = magic_index(blockers, rook_masks[square], rook_magic[square].magic_bitboard, rook_magic[square].bits_used);
+	Bitboard attacks = rook_magic[square].array_of_moves[index];
+    attacks &= ~state->all_pieces[color];
 
-    uint64_t ray = rook;
-    while (ray & NOT_H_FILE) {
-        ray <<= 1;
-        possible |= ray;
-        if (ray & occupied) {
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = rook;
-    while (ray & NOT_A_FILE) {
-        ray >>= 1;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = rook;
-    while (ray) {
-        ray <<= 8;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = rook;
-    while (ray) {
-        ray >>= 8;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-
-    return possible;
+    return attacks;
 }
 
 Bitboard generate_bishop_moves(Board *state, Bitboard bishop, Color color) {
-    uint64_t occupied = state->all_pieces[WHITE] | state->all_pieces[BLACK];
-    uint64_t enemy_pieces = state->all_pieces[!color];
-    uint64_t possible = 0;
+	int square = __builtin_ctzll(bishop);
+	Bitboard blockers = state->all_pieces[WHITE] | state->all_pieces[BLACK];
+	int index = magic_index(blockers, bishop_masks[square], bishop_magic[square].magic_bitboard, bishop_magic[square].bits_used);
+	Bitboard attacks = bishop_magic[square].array_of_moves[index];
+    attacks &= ~state->all_pieces[color];
 
-    uint64_t ray = bishop;
-    while (ray & NOT_A_FILE) {
-        ray <<= 7;
-        possible |= ray;
-        if (ray & occupied) {
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = bishop;
-    while (ray & NOT_H_FILE) {
-        ray >>= 7;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = bishop;
-    while (ray & NOT_H_FILE) {
-        ray <<= 9;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-    ray = bishop;
-    while (ray & NOT_A_FILE) {
-        ray >>= 9;
-        possible |= ray;
-        if (ray & occupied) { 
-            possible &= ~ray;
-            if (ray & enemy_pieces) possible |= ray;
-            break;
-        }
-    }
-
-    return possible;
+    return attacks;
 }
 
 Bitboard generate_queen_moves(Board *state, Bitboard queen, Color color) {

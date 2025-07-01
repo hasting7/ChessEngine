@@ -27,6 +27,16 @@ Bitboard generate_attackable_squares(Board *, Color);
 
 int check_flag(Board *, BoardFlag);
 void set_flag(Board *, BoardFlag, int);
+void load_magic_file(const char *filename, MagicData *table);
+void init_masks();
+Bitboard bmask(int);
+Bitboard rmask(int);
+int magic_index(Bitboard, Bitboard, Bitboard, int); 
+
+extern MagicData rook_magic[64];
+extern MagicData bishop_magic[64];
+extern Bitboard rook_masks[64];
+extern Bitboard bishop_masks[64];
 
 // HASH PROTOTYPES
 
@@ -60,19 +70,6 @@ Move select_move(Board *);
 void alphabeta(Board *, int, int, int, int, struct alphabeta_response *, Bitboard);
 void process_task(Board, int, Bitboard);
 
-// MAGIC BITBOARDS
-
-// Bishop magic bitboard data
-extern const Bitboard bishop_attacks[64][512];
-extern const Bitboard bishop_masks[64];
-extern const Bitboard bishop_magics[64];
-extern const int bishop_shifts[64];
-
-// Rook magic bitboard data
-extern const Bitboard rook_attacks[64][4096];
-extern const Bitboard rook_masks[64];
-extern const Bitboard rook_magics[64];
-extern const int rook_shifts[64];
 
 // PIECE EVALUATOR
 

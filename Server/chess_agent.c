@@ -7,8 +7,9 @@
 //	move 2: ~21 sec
 //	move 3: ~30 sec
 
+// after magic bitboard
 
-#define LOOK_AHEAD 5
+#define LOOK_AHEAD 6
 
 
 Bitboard CHECK_ALL = 0xFFFFFFFFFFFFFFFF;

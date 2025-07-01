@@ -3,6 +3,6 @@
 cd Server
 make clean
 make
-./server 6000 1
+./server 3000 1
 
 exit 0

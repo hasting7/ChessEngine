@@ -197,6 +197,9 @@ int main(int argc, char **argv) {
     pthread_mutex_init(&board_lock, NULL);
     board = create_board();
     init_zobrist_hash(&zobrist, board);
+    load_magic_file("rook_magic", rook_magic);
+    load_magic_file("bishop_magic", bishop_magic);
+    init_masks();
     printf("board_hash: %llu\n", (unsigned long long)board->z_hash);
     printf("PST\n\tmidgame: %d\n\tendgame: %d\n",board->pst_scores[MIDGAME],board->pst_scores[ENDGAME]);
 
