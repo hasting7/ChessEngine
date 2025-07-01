@@ -114,6 +114,11 @@ struct alphabeta_response {
     int score;
 };
 
+typedef struct magic_tile_response {
+    int bits_used;
+    Bitboard magic_bitboard;
+    Bitboard *array_of_moves;
+} MagicData;
 
 
 #endif // STRUCTS_H
