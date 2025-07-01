@@ -82,7 +82,8 @@ void handle_request(int fd, char *socket_buff, int length, struct thread_args ar
     } else if (cmd == RESTART) {
         reset_board(&board);
         printf("reset board\n");
-        write(fd, "RESET", 5);
+        ssize_t w = write(fd, "RESET", 5);
+        (void)w;
         return;
     }
     ssize_t w = write(fd, "ERROR", 5);

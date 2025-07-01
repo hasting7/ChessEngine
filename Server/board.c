@@ -46,8 +46,10 @@ void load_magic_file(const char *filename, MagicData *table) {
     }
 
     for (int i = 0; i < 64; i++) {
-        fread(&table[i].magic_bitboard, sizeof(Bitboard), 1, fp);
-        fread(&table[i].bits_used, sizeof(int), 1, fp);
+        size_t r1 = fread(&table[i].magic_bitboard, sizeof(Bitboard), 1, fp);
+        (void)r1;
+        size_t r2 = fread(&table[i].bits_used, sizeof(int), 1, fp);
+        (void)r2;
 
         int count = 1 << table[i].bits_used;
         table[i].array_of_moves = malloc(sizeof(Bitboard) * count);
@@ -56,7 +58,8 @@ void load_magic_file(const char *filename, MagicData *table) {
             exit(1);
         }
 
-        fread(table[i].array_of_moves, sizeof(Bitboard), count, fp);
+        size_t r3 = fread(table[i].array_of_moves, sizeof(Bitboard), count, fp);
+        (void)r3;
     }
 
     fclose(fp);
